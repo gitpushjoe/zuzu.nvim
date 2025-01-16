@@ -1,6 +1,7 @@
 local Profile = require("zuzu.profile")
 local Atlas = require("zuzu.atlas")
 local platform = require("zuzu.platform")
+local ProfileEditor = require("lua.zuzu.profile_editor")
 local M = {}
 
 ---@class (exact) BuildPair
@@ -25,6 +26,7 @@ local M = {}
 ---@field setup_is_dirty boolean
 ---@field core_hooks_is_dirty boolean
 ---@field core_hook_callbacks HookCallback[]
+---@field profile_editor ProfileEditor
 
 ---@return HookCallback[]
 function M.DEFAULT_CORE_HOOK_CALLBACKS()
@@ -48,6 +50,45 @@ function M.DEFAULT_CORE_HOOK_CALLBACKS()
 			end,
 		},
 	}
+end
+
+---@param state State
+---@vararg string
+---@return string
+function M.join_path(state, ...)
+	local paths = { ... }
+	return platform.join_path(state.zuzu_path, paths)
+end
+
+---@param state State
+---@return string
+function M.get_hooks_path(state)
+	return M.join_path(state, "hooks." .. platform.PLATFORM)
+end
+
+---@param state State
+---@return string
+function M.get_setup_path(state)
+	return M.join_path(state, "setup." .. platform.PLATFORM)
+end
+
+---@param state State
+---@return string
+function M.get_builds_path(state)
+	return M.join_path(state, "builds")
+end
+
+---@param state State
+---@param name string
+---@return string
+function M.get_build_path(state, name)
+	return M.join_path(state, "builds", name)
+end
+
+---@param state State
+---@return string
+function M.get_editor_path(state)
+	return M.join_path(state, "profile_editor")
 end
 
 ---@param state State
@@ -76,12 +117,7 @@ function M.state_write_hooks(state)
 			})
 	end
 
-	local hooks_handle = assert(
-		io.open(
-			platform.join_path(state.zuzu_path, "hooks." .. platform.PLATFORM),
-			"w+"
-		)
-	)
+	local hooks_handle = assert(io.open(M.get_hooks_path(state), "w+"))
 	assert(hooks_handle:write(text))
 	hooks_handle:close()
 
@@ -90,12 +126,7 @@ end
 
 ---@param state State
 function M.state_write_setup(state)
-	local setup_handle = assert(
-		io.open(
-			platform.join_path(state.zuzu_path, "setup." .. platform.PLATFORM),
-			"w+"
-		)
-	)
+	local setup_handle = assert(io.open(M.get_setup_path(state), "w+"))
 	assert(setup_handle:write(Profile.setup(state.profile)))
 	setup_handle:close()
 end
@@ -109,45 +140,24 @@ function M.state_write_build(state, name, text, build_idx)
 		sh = function()
 			return string.format(
 				"source %s\nsource %s\n",
-				platform.join_path(
-					state.zuzu_path,
-					"hooks." .. platform.PLATFORM
-				),
-				platform.join_path(
-					state.zuzu_path,
-					"setup." .. platform.PLATFORM
-				)
+				M.get_hooks_path(state),
+				M.get_setup_path(state)
 			)
 		end,
 		win = function()
 			return string.format(
 				'& "%s"\n& "%s"\n',
-				platform.join_path(
-					state.zuzu_path,
-					"hooks." .. platform.PLATFORM
-				),
-				platform.join_path(
-					state.zuzu_path,
-					"setup." .. platform.PLATFORM
-				)
+				M.get_hooks_path(state),
+				M.get_setup_path(state)
 			)
 		end,
 	}) .. string.format(
 		"function zuzu_cmd {\n%s\n}\nzuzu_cmd 2>&1 | tee ~/.zuzu/last.txt",
 		text
 	)
-	local hook_handle = assert(
-		io.open(
-			platform.join_path(
-				state.zuzu_path,
-				"builds",
-				name .. "." .. platform.PLATFORM
-			),
-			"w+"
-		)
-	)
-	assert(hook_handle:write(text))
-	hook_handle:close()
+	local build_handle = assert(io.open(M.get_build_path(state, name), "w+"))
+	assert(build_handle:write(text))
+	build_handle:close()
 	state.build_cache[name] = { state.profile, build_idx }
 	return text
 end
@@ -224,6 +234,12 @@ function M.state_build(state, path, build_idx)
 				)
 			)
 	)
+end
+
+---@param state State
+---@param roots string[]
+function M.state_edit_profiles(state, roots)
+	ProfileEditor.editor_open(state.profile_editor, roots)
 end
 
 return M

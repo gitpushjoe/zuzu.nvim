@@ -1,5 +1,5 @@
 local Atlas = require("zuzu.atlas")
-local State = require("zuzu.state")
+local State = require("lua.zuzu.state")
 local platform = require("zuzu.platform")
 local M = {}
 
@@ -30,12 +30,6 @@ local options = {
 		.. platform.PATH_SEP
 		.. "zuzu-cache.json",
 }
-
-_ = [[
-Config resolution rules:
- 1) Closest in terms of path
- 2) Least amount of accepted filetypes
-]]
 
 local name_hook = { "name", "joe" }
 
@@ -86,20 +80,28 @@ local state = {
 	setup_is_dirty = true,
 	core_hooks_is_dirty = true,
 	core_hook_callbacks = State.DEFAULT_CORE_HOOK_CALLBACKS(),
+	profile_editor = {
+		build_keybinds = options.keybinds.build[1],
+		path = vim.fn.expand("~/.zuzu/editor.sh"),
+		atlas = atlas
+	}
 }
 
+vim.api.nvim_set_keymap('n', '<leader>zd', '<cmd>lua require("zuzu").debug()<CR>', { noremap = true, silent = true })
+
 M.debug = function()
-	local handle = assert(io.popen("date +%s%6N"))
-	local start = handle:read("*a")
-	handle:close()
-
-	print(State.state_build(state, vim.fn.expand("%:p"), 1))
-
-	handle = assert(io.popen("date +%s%6N"))
-	local diff = tonumber(handle:read("*a")) - tonumber(start)
-	handle:close()
-
-	print(string.format("%s us %s", diff, start))
+	State.state_edit_profiles(state, { vim.fn.expand("%:p") })
+	-- local handle = assert(io.popen("date +%s%6N"))
+	-- local start = handle:read("*a")
+	-- handle:close()
+	--
+	-- print(State.state_build(state, vim.fn.expand("%:p"), 1))
+	--
+	-- handle = assert(io.popen("date +%s%6N"))
+	-- local diff = tonumber(handle:read("*a")) - tonumber(start)
+	-- handle:close()
+	--
+	-- print(string.format("%s us %s", diff, start))
 end
 
 M.setup = function() end
