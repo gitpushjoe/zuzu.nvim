@@ -22,6 +22,12 @@ function M.filetypes(profile)
 end
 
 ---@param profile Profile
+---@return string[]
+function M.hooks(profile)
+	return profile[3]
+end
+
+---@param profile Profile
 ---@param extension string
 ---@return boolean
 function M.accepts_ext(profile, extension)

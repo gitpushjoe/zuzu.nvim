@@ -1,4 +1,5 @@
 local Atlas = require("zuzu.atlas")
+local State = require("zuzu.state")
 local M = {}
 
 local SAFETY = 1024
@@ -36,7 +37,13 @@ Config resolution rules:
 ---@type Atlas
 local atlas = {
 	[""] = {
-		{ 5, { "lua" },  {}, "lua $file", { "lua $file\necho hi", "", "" } },
+		{
+			5,
+			{ "lua" },
+			{},
+			"|default|lua $file",
+			{ "lua $file\necho hi", "", "" },
+		},
 		{ 99, { "txt" }, {}, "cat $file", { "", "", "wc $file" } },
 	},
 	["/home"] = {
@@ -55,6 +62,14 @@ local atlas = {
 	},
 }
 
+---@type State
+local state = {
+	hooks = {},
+	build_cache = {},
+	setup_is_dirty = true,
+	hooks_is_dirty = true,
+	core_hook_callbacks = State.DEFAULT_CORE_HOOK_CALLBACKS(),
+}
 
 local prof, txt = Atlas.resolve_profile(atlas, "/home/joe/foo/bar.lua")
 print(vim.inspect(prof), txt)
