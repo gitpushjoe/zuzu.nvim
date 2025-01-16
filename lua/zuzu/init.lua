@@ -1,5 +1,6 @@
 local Atlas = require("zuzu.atlas")
 local State = require("zuzu.state")
+local platform = require("zuzu.platform")
 local M = {}
 
 local SAFETY = 1024
@@ -25,7 +26,9 @@ local options = {
 		modify_config = "z=",
 		delete_config = "z-",
 	},
-	cache_path = vim.fn.stdpath("data") .. "/zuzu-cache.json",
+	cache_path = vim.fn.stdpath("data")
+		.. platform.PATH_SEP
+		.. "zuzu-cache.json",
 }
 
 _ = [[
@@ -34,26 +37,37 @@ Config resolution rules:
  2) Least amount of accepted filetypes
 ]]
 
+local name_hook = { "name", "joe" }
+
 ---@type Atlas
 local atlas = {
 	[""] = {
 		{
-			5,
+			3,
 			{ "lua" },
-			{},
-			"|default|lua $file",
-			{ "lua $file\necho hi", "", "" },
+			{ name_hook },
+			'echo "My name is $name"',
+			{
+				[[echo "Word count: "
+wc $file
+echo "Files in parent directory: "
+ls -al -1 $parent
+echo "Output: "
+lua $file]],
+				"",
+				"",
+			},
 		},
-		{ 99, { "txt" }, {}, "cat $file", { "", "", "wc $file" } },
+		{ 99, { "txt" }, {}, "", { "date +%s%6N", "", "wc $file" } },
 	},
 	["/home"] = {
 		{
-			-1,
+			0,
 			{ "lua" },
-			{},
-			"",
+			{ { "foo", "bar" } },
+			"echo 'Doing some setup'",
 			{
-				"lua $file; echo specific",
+				"|specific|lua $file\necho $foo\necho specific",
 				"lua $file\necho hi",
 				"",
 				"",
@@ -64,15 +78,29 @@ local atlas = {
 
 ---@type State
 local state = {
+	zuzu_path = vim.fn.expand("~/.zuzu"),
+	atlas = atlas,
 	hooks = {},
 	build_cache = {},
-	setup_is_dirty = true,
 	hooks_is_dirty = true,
+	setup_is_dirty = true,
+	core_hooks_is_dirty = true,
 	core_hook_callbacks = State.DEFAULT_CORE_HOOK_CALLBACKS(),
 }
 
-local prof, txt = Atlas.resolve_profile(atlas, "/home/joe/foo/bar.lua")
-print(vim.inspect(prof), txt)
+M.debug = function()
+	local handle = assert(io.popen("date +%s%6N"))
+	local start = handle:read("*a")
+	handle:close()
+
+	print(State.state_build(state, vim.fn.expand("%:p"), 1))
+
+	handle = assert(io.popen("date +%s%6N"))
+	local diff = tonumber(handle:read("*a")) - tonumber(start)
+	handle:close()
+
+	print(string.format("%s us %s", diff, start))
+end
 
 M.setup = function() end
 

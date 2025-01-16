@@ -1,9 +1,8 @@
 local Profile = require("zuzu.profile")
+local platform = require("zuzu.platform")
 local M = {}
 
-local PATH_SEP = package.config:sub(1, 1)
-
----@type Atlas table<string, Profile[]>
+---@alias Atlas table<string, Profile[]>
 
 ---@param atlas Atlas
 ---@param path string
@@ -12,7 +11,7 @@ local PATH_SEP = package.config:sub(1, 1)
 function M.resolve_profile(atlas, path)
 	-- TODO(gitpushjoe): assert path exists, and has extension
 	local directory, _, extension =
-		path:match("(.*)" .. PATH_SEP .. "(.*)%.(%w*)")
+		path:match("(.*)" .. platform.PATH_SEP .. "(.*)%.(%w*)")
 
 	---@param dir string?
 	---@param depth integer
@@ -36,7 +35,7 @@ function M.resolve_profile(atlas, path)
 	end
 
 	for _ = 1, 1024 do
-		directory, _ = directory:match("(.*)" .. PATH_SEP .. "(.*)")
+		directory, _ = directory:match("(.*)" .. platform.PATH_SEP .. "(.*)")
 		current_depth = current_depth + 1
 		if atlas[directory] then
 			profile = find_first_accepting_profile(directory, current_depth)
