@@ -1,22 +1,24 @@
 local M = {}
 
----@class (exact) PlatformHandler<T>
----@field win function(): T
----@field sh function(): T
-
 M.PATH_SEP = package.config:sub(1, 1)
 
-M.PLATFORM = (function()
-	local handle = assert(io.popen("uname"))
-	local uname = handle:read("*a")
-	handle:close()
-	return uname:sub(1, 5) == "Linux" and "sh" or "win"
-end)()
+M.PLATFORM = M.PATH_SEP == "/" and "unix" or "win"
 
----@param handler PlatformHandler
-M.handle = function(handler)
-	return handler[M.PLATFORM]()
+---@generic T
+---@param unix_callback fun(...): T
+---@param win_callback fun(...): T
+M.dispatch = function(unix_callback, win_callback)
+	return M.PLATFORM == "unix" and unix_callback() or win_callback()
 end
+
+---@generic T
+---@param unix_version T
+---@param win_version T
+M.choose = function(unix_version, win_version)
+	return M.PLATFORM == "unix" and unix_version or win_version
+end
+
+M.EXTENSION = M.PLATFORM == "win" and "ps1" or "sh"
 
 ---@vararg string
 M.join_path = function(...)

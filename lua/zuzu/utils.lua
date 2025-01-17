@@ -1,4 +1,4 @@
-local platform = require("lua.zuzu.platform")
+local platform = require("zuzu.platform")
 
 local M = {}
 

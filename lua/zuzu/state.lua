@@ -1,7 +1,7 @@
 local Profile = require("zuzu.profile")
 local Atlas = require("zuzu.atlas")
 local platform = require("zuzu.platform")
-local ProfileEditor = require("lua.zuzu.profile_editor")
+local ProfileEditor = require("zuzu.profile_editor")
 local M = {}
 
 ---@class (exact) BuildPair
@@ -56,20 +56,19 @@ end
 ---@vararg string
 ---@return string
 function M.join_path(state, ...)
-	local paths = { ... }
-	return platform.join_path(state.zuzu_path, paths)
+	return platform.join_path(state.zuzu_path, ...)
 end
 
 ---@param state State
 ---@return string
 function M.get_hooks_path(state)
-	return M.join_path(state, "hooks." .. platform.PLATFORM)
+	return M.join_path(state, "hooks." .. platform.EXTENSION)
 end
 
 ---@param state State
 ---@return string
 function M.get_setup_path(state)
-	return M.join_path(state, "setup." .. platform.PLATFORM)
+	return M.join_path(state, "setup." .. platform.EXTENSION)
 end
 
 ---@param state State
@@ -82,7 +81,7 @@ end
 ---@param name string
 ---@return string
 function M.get_build_path(state, name)
-	return M.join_path(state, "builds", name)
+	return M.join_path(state, "builds", name .. "." .. platform.EXTENSION)
 end
 
 ---@param state State
@@ -99,22 +98,11 @@ function M.state_write_hooks(state)
 		local hook_name = hook_pair[1]
 		local hook_val = hook_pair[2]
 		text = text
-			.. platform.handle({
-				sh = function()
-					return string.format(
-						"export %s='%s'\n",
-						hook_name,
-						hook_val
-					)
-				end,
-				win = function()
-					return string.format(
-						"$env:%s = '%s'\n",
-						hook_name,
-						hook_val
-					)
-				end,
-			})
+			.. platform.dispatch(function()
+				return string.format("export %s='%s'\n", hook_name, hook_val)
+			end, function()
+				return string.format("$env:%s = '%s'\n", hook_name, hook_val)
+			end)
 	end
 
 	local hooks_handle = assert(io.open(M.get_hooks_path(state), "w+"))
@@ -136,22 +124,11 @@ end
 ---@param text string
 ---@param build_idx integer
 function M.state_write_build(state, name, text, build_idx)
-	text = platform.handle({
-		sh = function()
-			return string.format(
-				"source %s\nsource %s\n",
-				M.get_hooks_path(state),
-				M.get_setup_path(state)
-			)
-		end,
-		win = function()
-			return string.format(
-				'& "%s"\n& "%s"\n',
-				M.get_hooks_path(state),
-				M.get_setup_path(state)
-			)
-		end,
-	}) .. string.format(
+	text = string.format(
+		platform.choose("source %s\nsource %s\n", '. "%s"\n. "%s"\n'),
+		M.get_hooks_path(state),
+		M.get_setup_path(state)
+	) .. string.format(
 		"function zuzu_cmd {\n%s\n}\nzuzu_cmd 2>&1 | tee ~/.zuzu/last.txt",
 		text
 	)
@@ -230,7 +207,7 @@ function M.state_build(state, path, build_idx)
 				platform.join_path(
 					state.zuzu_path,
 					"builds",
-					build_name .. "." .. platform.PLATFORM
+					build_name .. "." .. platform.EXTENSION
 				)
 			)
 	)

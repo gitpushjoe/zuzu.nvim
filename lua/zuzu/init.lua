@@ -1,9 +1,6 @@
-local Atlas = require("zuzu.atlas")
-local State = require("lua.zuzu.state")
+local State = require("zuzu.state")
 local platform = require("zuzu.platform")
 local M = {}
-
-local SAFETY = 1024
 
 M.SPLIT_HORIZONTALLY = 1
 M.SPLIT_VERTICALLY = 1
@@ -22,53 +19,68 @@ local options = {
 			{ "zv", "ZV", "zV", "Zv" },
 			{ "zs", "ZS", "zS", "Zs" },
 		},
-		add_config = "z+",
-		modify_config = "z=",
-		delete_config = "z-",
+		new_profile = "z+",
+		new_project_profile = "z^",
+		delete_profile = "z-",
+		modify_profile = "z=",
+		modify_all_applicable_profiles = "z*",
 	},
-	cache_path = vim.fn.stdpath("data")
-		.. platform.PATH_SEP
-		.. "zuzu-cache.json",
+	cache_path = platform.join_path(
+		tostring(vim.fn.stdpath("data")),
+		"zuzu-cache.json"
+	),
 }
 
-local name_hook = { "name", "joe" }
+-- local name_hook = { "name", "joe" }
 
----@type Atlas
-local atlas = {
-	[""] = {
-		{
-			3,
-			{ "lua" },
-			{ name_hook },
-			'echo "My name is $name"',
-			{
-				[[echo "Word count: "
-wc $file
-echo "Files in parent directory: "
-ls -al -1 $parent
-echo "Output: "
-lua $file]],
-				"",
-				"",
-			},
-		},
-		{ 99, { "txt" }, {}, "", { "date +%s%6N", "", "wc $file" } },
-	},
-	["/home"] = {
-		{
-			0,
-			{ "lua" },
-			{ { "foo", "bar" } },
-			"echo 'Doing some setup'",
-			{
-				"|specific|lua $file\necho $foo\necho specific",
-				"lua $file\necho hi",
-				"",
-				"",
-			},
-		},
-	},
-}
+-- ---@type Atlas
+-- local atlas = {
+-- 	[""] = {
+-- 		{
+-- 			{ "lua" },
+-- 			3,
+-- 			{ name_hook },
+-- 			'echo "My name is $name"',
+-- 			{
+-- 				[[echo "Word count: "
+-- wc $file
+-- echo "Files in parent directory: "
+-- ls -al -1 $parent
+-- echo "Output: "
+-- lua $file]],
+-- 				"",
+-- 				"",
+-- 			},
+-- 		},
+-- 		{ { "txt" }, 99, {}, "", { "date +%s%6N", "", "wc $file" } },
+-- 	},
+-- 	["/home"] = {
+-- 		{
+-- 			{ "lua" },
+-- 			0,
+-- 			{ { "foo", "bar" } },
+-- 			"echo 'Doing some setup'",
+-- 			{
+-- 				"|specific|lua $file\necho $foo\necho specific",
+-- 				"lua $file\necho hi",
+-- 				"",
+-- 				"",
+-- 			},
+-- 		},
+-- 	},
+-- }
+
+local atlas_path = vim.fn.expand("~/.zuzu/atlas.json")
+
+local atlas = (function()
+	local handle = assert(io.open(atlas_path, "r"))
+	local text = handle:read("*a")
+	handle:close()
+	local _, table = pcall(function()
+		return vim.fn.json_decode(text)
+	end)
+	return table or {}
+end)()
 
 ---@type State
 local state = {
@@ -82,21 +94,36 @@ local state = {
 	core_hook_callbacks = State.DEFAULT_CORE_HOOK_CALLBACKS(),
 	profile_editor = {
 		build_keybinds = options.keybinds.build[1],
-		path = vim.fn.expand("~/.zuzu/editor.sh"),
-		atlas = atlas
-	}
+		path = "zuzu///profile_editor",
+		atlas = atlas,
+		atlas_path = atlas_path,
+	},
 }
 
-vim.api.nvim_set_keymap('n', '<leader>zd', '<cmd>lua require("zuzu").debug()<CR>', { noremap = true, silent = true })
+vim.api.nvim_set_keymap(
+	"n",
+	"zd",
+	'<cmd>lua require("zuzu").debug1()<CR>',
+	{ noremap = true, silent = true }
+)
 
-M.debug = function()
+vim.api.nvim_set_keymap(
+	"n",
+	"z2",
+	'<cmd>lua require("zuzu").debug2()<CR>',
+	{ noremap = true, silent = true }
+)
+
+M.debug1 = function()
 	State.state_edit_profiles(state, { vim.fn.expand("%:p") })
+end
+M.debug2 = function()
 	-- local handle = assert(io.popen("date +%s%6N"))
 	-- local start = handle:read("*a")
 	-- handle:close()
-	--
-	-- print(State.state_build(state, vim.fn.expand("%:p"), 1))
-	--
+
+	State.state_build(state, vim.fn.expand("%:p"), 1)
+
 	-- handle = assert(io.popen("date +%s%6N"))
 	-- local diff = tonumber(handle:read("*a")) - tonumber(start)
 	-- handle:close()
@@ -104,6 +131,12 @@ M.debug = function()
 	-- print(string.format("%s us %s", diff, start))
 end
 
-M.setup = function() end
+M.setup = function()
+	vim.cmd([[highlight ZuzuCreate guifg=LightGreen]])
+	vim.cmd([[highlight ZuzuReplace guifg=Violet]])
+	vim.cmd([[highlight ZuzuOverwrite guifg=LightMagenta]])
+	vim.cmd([[highlight ZuzuDelete guifg=Red]])
+	vim.cmd([[highlight ZuzuHighlight guifg=Orange]])
+end
 
 return M
