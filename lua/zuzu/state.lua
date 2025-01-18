@@ -2,6 +2,7 @@ local Profile = require("zuzu.profile")
 local Atlas = require("zuzu.atlas")
 local platform = require("zuzu.platform")
 local ProfileEditor = require("zuzu.profile_editor")
+local ProfileMap = require("zuzu.profile_map")
 local M = {}
 
 ---@class (exact) BuildPair
@@ -214,9 +215,50 @@ function M.state_build(state, path, build_idx)
 end
 
 ---@param state State
----@param roots string[]
-function M.state_edit_profiles(state, roots)
-	ProfileEditor.editor_open(state.profile_editor, roots)
+---@param root string
+function M.state_edit_new_profile(state, root)
+	ProfileEditor.editor_open_new_profile(state.profile_editor, root)
+end
+
+---@param state State
+---@param root string
+function M.state_edit_new_profile_at_directory(state, root)
+	ProfileEditor.editor_open_new_profile_at_directory(
+		state.profile_editor,
+		root
+	)
+end
+
+---@param state State
+---@param path string
+function M.state_edit_most_applicable_profile(state, path)
+	local profile, root = assert(Atlas.resolve_profile(state.atlas, path))
+	ProfileEditor.editor_open(
+		state.profile_editor,
+		{ [ProfileMap.get_id(root, profile)] = profile },
+		true
+	)
+end
+
+---@param state State
+function M.state_edit_all_profiles(state)
+	local profile_map = {}
+	for root, profiles in pairs(state.atlas) do
+		for _, profile in ipairs(profiles) do
+			profile_map[ProfileMap.get_id(root, profile)] = profile
+		end
+	end
+	ProfileEditor.editor_open(state.profile_editor, profile_map, true)
+end
+
+---@param state State
+---@param path string
+function M.state_edit_all_applicable_profiles(state, path)
+	local profile_map = {}
+	for profile, root in Atlas.resolve_profile_generator(state.atlas, path) do
+		profile_map[ProfileMap.get_id(root, profile)] = profile
+	end
+	ProfileEditor.editor_open(state.profile_editor, profile_map, true)
 end
 
 return M

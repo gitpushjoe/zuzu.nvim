@@ -77,7 +77,7 @@ local atlas = (function()
 	local text = handle:read("*a")
 	handle:close()
 	local _, table = pcall(function()
-		return vim.fn.json_decode(text)
+		return (text == "" or text == "[]") and {} or vim.fn.json_decode(text)
 	end)
 	return table or {}
 end)()
@@ -114,9 +114,38 @@ vim.api.nvim_set_keymap(
 	{ noremap = true, silent = true }
 )
 
+vim.api.nvim_set_keymap(
+	"n",
+	"z=",
+	'<cmd>lua require("zuzu").debug3()<CR>',
+	{ noremap = true, silent = true }
+)
+
+vim.api.nvim_set_keymap(
+	"n",
+	"z*",
+	'<cmd>lua require("zuzu").debug4()<CR>',
+	{ noremap = true, silent = true }
+)
+
+vim.api.nvim_set_keymap(
+	"n",
+	"z?",
+	'<cmd>lua require("zuzu").debug5()<CR>',
+	{ noremap = true, silent = true }
+)
+
+vim.api.nvim_set_keymap(
+	"n",
+	"z/",
+	'<cmd>lua require("zuzu").debug6()<CR>',
+	{ noremap = true, silent = true }
+)
+
 M.debug1 = function()
-	State.state_edit_profiles(state, { vim.fn.expand("%:p") })
+	State.state_edit_new_profile(state, vim.fn.expand("%:p"))
 end
+
 M.debug2 = function()
 	-- local handle = assert(io.popen("date +%s%6N"))
 	-- local start = handle:read("*a")
@@ -131,11 +160,27 @@ M.debug2 = function()
 	-- print(string.format("%s us %s", diff, start))
 end
 
+M.debug3 = function()
+	State.state_edit_most_applicable_profile(state, vim.fn.expand("%:p"))
+end
+
+M.debug4 = function()
+	State.state_edit_all_profiles(state)
+end
+
+M.debug5 = function()
+	State.state_edit_all_applicable_profiles(state, vim.fn.expand("%:p"))
+end
+
+M.debug6 = function()
+	State.state_edit_new_profile_at_directory(state, vim.fn.expand("%:p"))
+end
+
 M.setup = function()
 	vim.cmd([[highlight ZuzuCreate guifg=LightGreen]])
 	vim.cmd([[highlight ZuzuReplace guifg=Violet]])
 	vim.cmd([[highlight ZuzuOverwrite guifg=LightMagenta]])
-	vim.cmd([[highlight ZuzuDelete guifg=Red]])
+	vim.cmd([[highlight ZuzuDelete guifg=#ff3030]])
 	vim.cmd([[highlight ZuzuHighlight guifg=Orange]])
 end
 

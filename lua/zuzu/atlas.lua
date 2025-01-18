@@ -7,47 +7,64 @@ local M = {}
 
 ---@param atlas Atlas
 ---@param path string
+---@return fun(): Profile?, string?
+function M.resolve_profile_generator(atlas, path)
+	return coroutine.wrap(function()
+		-- TODO(gitpushjoe): assert path exists, and has extension
+		local directory, _, extension =
+			path:match("(.*)" .. platform.PATH_SEP .. "(.*)%.(%w*)")
+
+		---@param key string?
+		---@param depth integer
+		local find_first_accepting_profile = function(key, depth)
+			local group = atlas[key]
+			if not group then
+				return
+			end
+			for _, profile in ipairs(group) do
+				if Profile.accepts(profile, depth, extension) then
+					coroutine.yield(profile, directory)
+				end
+			end
+		end
+
+		local current_depth = 0
+		local profile = nil
+		profile = find_first_accepting_profile(path, current_depth)
+			or find_first_accepting_profile(directory, current_depth)
+		if profile then
+			coroutine.yield(profile, path)
+		end
+
+		for _ = 1, 1024 do
+			if not directory then
+				return
+			end
+			directory, _ =
+				directory:match("(.*)" .. platform.PATH_SEP .. "(.*)")
+			current_depth = current_depth + 1
+			if atlas[directory] then
+				profile = find_first_accepting_profile(directory, current_depth)
+				if profile then
+					coroutine.yield(profile, directory)
+				end
+			end
+			if #directory == 0 then
+				break
+			end
+		end
+	end)
+end
+
+---@param atlas Atlas
+---@param path string
 ---@return Profile? profile
----@return string? path
+---@return string? root
 function M.resolve_profile(atlas, path)
-	-- TODO(gitpushjoe): assert path exists, and has extension
-	local directory, _, extension =
-		path:match("(.*)" .. platform.PATH_SEP .. "(.*)%.(%w*)")
-
-	---@param dir string?
-	---@param depth integer
-	local find_first_accepting_profile = function(dir, depth)
-		local group = atlas[dir]
-		if not group then
-			return
-		end
-		for _, profile in ipairs(group) do
-			if Profile.accepts(profile, depth, extension) then
-				return profile, directory
-			end
-		end
-	end
-
-	local current_depth = 0
-	local profile = nil
-	profile = find_first_accepting_profile(path, current_depth)
-		or find_first_accepting_profile(directory, current_depth)
+	local gen = M.resolve_profile_generator(atlas, path)
+	local profile, root = gen()
 	if profile then
-		return profile
-	end
-
-	for _ = 1, 1024 do
-		directory, _ = directory:match("(.*)" .. platform.PATH_SEP .. "(.*)")
-		current_depth = current_depth + 1
-		if atlas[directory] then
-			profile = find_first_accepting_profile(directory, current_depth)
-			if profile then
-				return profile
-			end
-		end
-		if #directory == 0 then
-			break
-		end
+		return profile, root
 	end
 end
 

@@ -51,42 +51,106 @@ function M.editor_close(editor)
 end
 
 ---@param editor ProfileEditor
----@param root string
-function M.new_profile_text(editor, root)
-	local _, _, extension = utils.get_parent_directory_basename_extension(root)
-	return string.format(
-		[[
+---@param id string
+---@param profile Profile
+---@return string
+function M.profile_text(editor, id, profile)
+	local root, filetypes, depth = ProfileMap.split_id(id)
+	local text = ([[
 ### {{ root: %s }}
 ### {{ filetypes: %s }}
-### {{ depth: 0 }}
-### {{ hooks }}
+### {{ depth: %s }}
+### {{ hooks }}%s
 ### {{ setup }}
-
+%s]]):format(
+		root == "" and "*" or root,
+		filetypes == "" and "*" or filetypes,
+		depth == "inf" and "-1" or depth,
+		(function()
+			local hook_text = ""
+			for _, hook_pair in ipairs(Profile.hooks(profile)) do
+				hook_text = hook_text
+					.. (platform.choose("\nexport %s=%s", "\n$%s=%s")):format(
+						hook_pair[1],
+						hook_pair[2]
+					)
+			end
+			return hook_text
+				.. (hook_text ~= "" and platform.choose("\n", "\r\n") or "")
+		end)(),
+		Profile.setup(profile)
+	)
+	for i, keybind in ipairs(editor.build_keybinds) do
+		local build_text = Profile.build(profile, i)
+		local name, rest = build_text:match("|(.+)|(.*)")
+		if name then
+			build_text = ("### {{ name: %s }}%s"):format(
+				name,
+				platform.choose("\n", "\r\n") .. rest
+			)
+		end
+		text = text .. ([[
 
 ### {{ %s }}
-]],
-		root,
-		extension,
-		table.concat(editor.build_keybinds, " }}\n\n\n### {{ ")
-	)
+%s]]):format(keybind, build_text)
+	end
+	return text
 end
 
 ---@param editor ProfileEditor
----@param roots string[]
-function M.editor_open(editor, roots)
+---@param root string
+function M.editor_open_new_profile(editor, root)
+	local _, _, extension = utils.get_parent_directory_basename_extension(root)
+	local profile = Profile.new(root, extension, "0", {}, "\n", {})
+	M.editor_open(editor, { [ProfileMap.get_id(root, profile)] = profile })
+end
+
+---@param editor ProfileEditor
+---@param root string
+function M.editor_open_new_profile_at_directory(editor, root)
+	local directory, _, extension =
+		utils.get_parent_directory_basename_extension(root)
+	local profile = Profile.new(directory, extension, "-1", {}, "\n", {})
+	M.editor_open(editor, { [ProfileMap.get_id(directory, profile)] = profile })
+end
+
+---@param editor ProfileEditor
+---@param profiles ProfileMap
+---@param link_profiles boolean?
+function M.editor_open(editor, profiles, link_profiles)
+	link_profiles = link_profiles or false
 	M.editor_close(editor)
 	local text = (function()
-		if #roots == 1 then
-			return M.new_profile_text(editor, roots[1])
+		local res = ""
+		for id, profile in pairs(profiles) do
+			res = res
+				.. (res ~= "" and platform.choose("\n", "\r\n") or "")
+				.. M.profile_text(editor, id, profile)
 		end
+		return res
+	end)()
+
+	local lines = vim.split(text, platform.choose("\n", "\r\n"))
+	local cursor_pos = (function()
+		local header = ("### {{ %s }}"):format(editor.build_keybinds[1])
+		for i = #lines, 1, -1 do
+			if lines[i] == header then
+				return math.min(i + 1, #lines)
+			end
+		end
+		return 1
 	end)()
 
 	local buf_id = vim.api.nvim_create_buf(false, true)
+	editor.state = {
+		linked_profiles = link_profiles and profiles or {},
+		buf_id = buf_id,
+	}
 	vim.api.nvim_buf_set_option(buf_id, "filetype", "bash")
 	vim.api.nvim_buf_set_name(buf_id, editor.path)
-	vim.api.nvim_buf_set_lines(buf_id, 0, 0, false, vim.split(text, "\n"))
+	vim.api.nvim_buf_set_lines(buf_id, 0, -1, false, vim.split(text, "\n"))
 	vim.api.nvim_set_current_buf(buf_id)
-	vim.api.nvim_win_set_cursor(0, { 9, 0 })
+	vim.api.nvim_win_set_cursor(0, { cursor_pos, 0 })
 	vim.api.nvim_create_augroup("CloseBufferOnBufferClose", { clear = true })
 	vim.api.nvim_create_autocmd("BufLeave", {
 		group = "CloseBufferOnBufferClose",
@@ -97,18 +161,15 @@ function M.editor_open(editor, roots)
 			end
 		end,
 	})
-	vim.api.nvim_command("startinsert")
+	if not link_profiles then
+		vim.api.nvim_command("startinsert")
+	end
 	vim.api.nvim_set_option_value("buftype", "acwrite", { buf = buf_id })
-
-	editor.state = {
-		buf_id = buf_id,
-		linked_profiles = {},
-	}
-	editor.state.linked_profiles = {}
 
 	vim.api.nvim_create_autocmd("BufWriteCmd", {
 		buffer = buf_id,
 		callback = function()
+			vim.api.nvim_set_option_value("modified", false, { buf = buf_id })
 			if not vim.api.nvim_buf_is_valid(buf_id) then
 				return
 			end
@@ -152,6 +213,10 @@ function M.editor_open(editor, roots)
 					should_prompt_user = should_prompt_user or true
 				end
 			end
+			if #actions == 0 then
+				vim.api.nvim_buf_delete(buf_id, {})
+				return
+			end
 			local prompt = { { "Looks good?" } }
 			for i = 1, #actions do
 				action = actions[i]
@@ -161,7 +226,7 @@ function M.editor_open(editor, roots)
 					('\n    [ %s%s ] root = %s, filetypes = "%s", depth = %s'):format(
 						(" "):rep(#"overwrite" - #type),
 						type,
-						root,
+						root == "" and "/" or root,
 						filetypes,
 						depth
 					),
@@ -177,11 +242,10 @@ function M.editor_open(editor, roots)
 				{ "es  " },
 				{ "[N]", "ZuzuHighlight" },
 				{ "o  e" },
-				{ "[X]", "ZuzuHighlight" },
+				{ "[X]", "ZuzuDelete" },
 				{ "it" },
 			}, 1, 7, #prompt + 1, prompt)
 			vim.api.nvim_echo(prompt, false, {})
-			vim.api.nvim_set_option_value("modified", false, { buf = buf_id })
 			vim.ui.input({ prompt = "" }, function(input)
 				if string.lower(string.sub(input, 1, 1)) == "x" then
 					vim.api.nvim_buf_delete(buf_id, {})

@@ -49,6 +49,7 @@ function M.new(root, filetypes, depth, hooks, setup, builds)
 	local depth_value = tonumber(depth)
 	assert(
 		depth_value ~= nil
+			and depth_value ~= math.huge
 			and math.floor(depth_value) == depth_value
 			and depth_value >= -1,
 		("Invalid depth: %s. Use -1 for any depth."):format(depth)
@@ -62,19 +63,19 @@ function M.new(root, filetypes, depth, hooks, setup, builds)
 				return
 			end
 			local export_pattern_syntax =
-				platform.choose("^export (%S+)=", "^$(%S+)%s?=%s?")
+				platform.choose("^export (%S-)=", "^$(%S-)%s?=%s?")
 			local hook_name, hook_value =
-				hook:match(export_pattern_syntax .. '"(%S+)"$')
+				hook:match(export_pattern_syntax .. '"(%S-)"$')
 			if hook_name then
 				return table.insert(hook_list, { hook_name, hook_value })
 			end
 			hook_name, hook_value =
-				hook:match(export_pattern_syntax .. "(%S+)$")
+				hook:match(export_pattern_syntax .. "(%S-)$")
 			if hook_name then
 				return table.insert(hook_list, { hook_name, hook_value })
 			end
 			hook_name, hook_value =
-				hook:match(export_pattern_syntax .. "'(%S+)'$")
+				hook:match(export_pattern_syntax .. "'(%S-)'$")
 			if hook_name then
 				return table.insert(hook_list, { hook_name, hook_value })
 			end
@@ -144,7 +145,7 @@ end
 ---@param build_idx integer
 ---@return string
 function M.build(profile, build_idx)
-	return M.builds(profile)[build_idx] or ""
+	return M.builds(profile)[build_idx] or platform.choose("\n", "\r\n")
 end
 
 ---@param profile1 Profile
@@ -177,7 +178,7 @@ function M.equals(profile1, profile2)
 		and #M.builds(profile1) == #M.builds(profile2)
 		and (function()
 			for i = 1, #M.builds(profile1) do
-				if M.builds(profile1)[i] ~= M.builds(profile2)[i] then
+				if M.build(profile1, i) ~= M.build(profile2, i) then
 					return false
 				end
 			end
