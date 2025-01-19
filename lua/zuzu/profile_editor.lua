@@ -3,6 +3,7 @@ local Profile = require("zuzu.profile")
 local platform = require("zuzu.platform")
 local ProfileMap = require("zuzu.profile_map")
 local Atlas = require("zuzu.atlas")
+local Preferences = require("zuzu.preferences")
 local M = {}
 
 ---@class (exact) ProfileEditorState
@@ -11,10 +12,8 @@ local M = {}
 
 ---@class (exact) ProfileEditor
 ---@field state ProfileEditorState?
----@field build_keybinds string[]
----@field path string
+---@field preferences Preferences
 ---@field atlas Atlas
----@field atlas_path string
 
 ---@class (exact) CreateAction
 ---@field type "create"
@@ -43,7 +42,7 @@ local M = {}
 ---@param editor ProfileEditor
 function M.editor_close(editor)
 	for _, buf_id in ipairs(vim.api.nvim_list_bufs()) do
-		if vim.api.nvim_buf_get_name(buf_id) == editor.path then
+		if vim.api.nvim_buf_get_name(buf_id) == "zuzu///editor" then
 			vim.api.nvim_buf_delete(buf_id, { force = true })
 		end
 	end
@@ -69,10 +68,15 @@ function M.profile_text(editor, id, profile)
 		(function()
 			local hook_text = ""
 			for _, hook_pair in ipairs(Profile.hooks(profile)) do
+				local hook_name = hook_pair[1]
+				local hook_val = hook_pair[2]
+				hook_val = string.find(hook_val, "%s")
+						and ('"%s"'):format(hook_val)
+					or hook_val
 				hook_text = hook_text
 					.. (platform.choose("\nexport %s=%s", "\n$%s=%s")):format(
-						hook_pair[1],
-						hook_pair[2]
+						hook_name,
+						hook_val
 					)
 			end
 			return hook_text
@@ -80,7 +84,7 @@ function M.profile_text(editor, id, profile)
 		end)(),
 		Profile.setup(profile)
 	)
-	for i, keybind in ipairs(editor.build_keybinds) do
+	for i, keybind in ipairs(editor.preferences.keybinds.build[1]) do
 		local build_text = Profile.build(profile, i)
 		local name, rest = build_text:match("|(.+)|(.*)")
 		if name then
@@ -132,7 +136,9 @@ function M.editor_open(editor, profiles, link_profiles)
 
 	local lines = vim.split(text, platform.choose("\n", "\r\n"))
 	local cursor_pos = (function()
-		local header = ("### {{ %s }}"):format(editor.build_keybinds[1])
+		local header = ("### {{ %s }}"):format(
+			editor.preferences.keybinds.build[1]
+		)
 		for i = #lines, 1, -1 do
 			if lines[i] == header then
 				return math.min(i + 1, #lines)
@@ -147,7 +153,7 @@ function M.editor_open(editor, profiles, link_profiles)
 		buf_id = buf_id,
 	}
 	vim.api.nvim_buf_set_option(buf_id, "filetype", "bash")
-	vim.api.nvim_buf_set_name(buf_id, editor.path)
+	vim.api.nvim_buf_set_name(buf_id, "zuzu///editor")
 	vim.api.nvim_buf_set_lines(buf_id, 0, -1, false, vim.split(text, "\n"))
 	vim.api.nvim_set_current_buf(buf_id)
 	vim.api.nvim_win_set_cursor(0, { cursor_pos, 0 })
@@ -165,6 +171,7 @@ function M.editor_open(editor, profiles, link_profiles)
 		vim.api.nvim_command("startinsert")
 	end
 	vim.api.nvim_set_option_value("buftype", "acwrite", { buf = buf_id })
+	vim.api.nvim_set_option_value("modified", false, { buf = buf_id })
 
 	vim.api.nvim_create_autocmd("BufWriteCmd", {
 		buffer = buf_id,
@@ -196,7 +203,10 @@ function M.editor_open(editor, profiles, link_profiles)
 							other = existing_profile,
 						}
 						should_prompt_user = should_prompt_user
-							or not profile_is_linked
+							or (
+								editor.preferences.prompt_on_simple_edits
+								and not profile_is_linked
+							)
 						table.insert(actions, action)
 					end
 				else
@@ -210,10 +220,10 @@ function M.editor_open(editor, profiles, link_profiles)
 					---@type DeleteAction
 					action = { type = "delete", id = id, profile = profile }
 					table.insert(actions, action)
-					should_prompt_user = should_prompt_user or true
+					should_prompt_user = true
 				end
 			end
-			if #actions == 0 then
+			if not should_prompt_user then
 				vim.api.nvim_buf_delete(buf_id, {})
 				return
 			end
@@ -253,8 +263,15 @@ function M.editor_open(editor, profiles, link_profiles)
 				end
 				if string.lower(string.sub(input, 1, 1)) == "y" then
 					M.editor_apply_actions(editor, actions)
-					local atlas_handle = assert(io.open(editor.atlas_path, "w"))
-					assert(atlas_handle:write(vim.fn.json_encode(editor.atlas)))
+					local atlas_handle = utils.assert(
+						io.open(
+							Preferences.get_atlas_path(editor.preferences),
+							"w"
+						)
+					)
+					utils.assert(
+						atlas_handle:write(vim.fn.json_encode(editor.atlas))
+					)
 					atlas_handle:close()
 					local action_counts = {}
 					for i = 1, #actions do
@@ -311,7 +328,7 @@ function M.parse_editor_lines(editor, lines)
 					and lines[line]:sub(#"### {{ name: ") ~= "### {{ name: "
 				)
 			then
-				error(
+				utils.error(
 					string.format(
 						'Unexpected header: "%s"\nWas searching for pattern: "%s"',
 						lines[line],
@@ -334,7 +351,8 @@ function M.parse_editor_lines(editor, lines)
 	local expect_header = function(line, pattern, allow_name)
 		local next_line, match, errmsg = seek_header(line, pattern, allow_name)
 		if not next_line or not match then
-			error(errmsg)
+			utils.error(errmsg)
+			error()
 		end
 		return next_line, match
 	end
@@ -376,17 +394,23 @@ function M.parse_editor_lines(editor, lines)
 
 		next_line = expect_header(
 			line,
-			string.format("^### {{ %s }}$", editor.build_keybinds[1]),
+			string.format(
+				"^### {{ %s }}$",
+				editor.preferences.keybinds.build[1][1]
+			),
 			true
 		)
 		local setup = concat_lines(line, next_line - 1)
 		line = next_line + 1
 
 		local builds = {}
-		for i = 2, #editor.build_keybinds do
+		for i = 2, #editor.preferences.keybinds.build[1] do
 			next_line = expect_header(
 				line,
-				string.format("^### {{ %s }}$", editor.build_keybinds[i]),
+				string.format(
+					"^### {{ %s }}$",
+					editor.preferences.keybinds.build[1][i]
+				),
 				true
 			)
 			builds[i - 1] = concat_lines(line, next_line - 1)
@@ -409,7 +433,7 @@ end
 ---@return ProfileEditor
 function M.editor_apply_actions(editor, actions)
 	for _, action in ipairs(actions) do
-		local root = assert(ProfileMap.split_id(action.id))
+		local root = utils.assert(ProfileMap.split_id(action.id))
 		local switch_table = {
 			---@param create_action CreateAction
 			create = function(create_action)
@@ -417,19 +441,21 @@ function M.editor_apply_actions(editor, actions)
 			end,
 			---@param replace_action ReplaceAction
 			replace = function(replace_action)
-				local profile =
-					assert(Atlas.find_by_id(editor.atlas, replace_action.id))
+				local profile = utils.assert(
+					Atlas.find_by_id(editor.atlas, replace_action.id)
+				)
 				Profile.set(profile, replace_action.profile)
 			end,
 			---@param overwrite_action OverwriteAction
 			overwrite = function(overwrite_action)
-				local profile =
-					assert(Atlas.find_by_id(editor.atlas, overwrite_action.id))
+				local profile = utils.assert(
+					Atlas.find_by_id(editor.atlas, overwrite_action.id)
+				)
 				Profile.set(profile, overwrite_action.profile)
 			end,
 			---@param delete_action DeleteAction
 			delete = function(delete_action)
-				assert(
+				utils.assert(
 					Atlas.delete(editor.atlas, root, delete_action.profile),
 					"Unable to delete profile"
 				)

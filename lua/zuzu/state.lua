@@ -2,7 +2,9 @@ local Profile = require("zuzu.profile")
 local Atlas = require("zuzu.atlas")
 local platform = require("zuzu.platform")
 local ProfileEditor = require("zuzu.profile_editor")
+local Preferences = require("zuzu.preferences")
 local ProfileMap = require("zuzu.profile_map")
+local utils = require("zuzu.utils")
 local M = {}
 
 ---@class (exact) BuildPair
@@ -18,15 +20,13 @@ local M = {}
 ---@field [2] string callback
 
 ---@class (exact) State
----@field zuzu_path string
 ---@field atlas Atlas
 ---@field hooks HookPair[]
 ---@field profile Profile?
+---@field preferences Preferences
 ---@field build_cache table<string, BuildPair>
 ---@field hooks_is_dirty boolean
----@field setup_is_dirty boolean
 ---@field core_hooks_is_dirty boolean
----@field core_hook_callbacks HookCallback[]
 ---@field profile_editor ProfileEditor
 
 ---@return HookCallback[]
@@ -54,44 +54,6 @@ function M.DEFAULT_CORE_HOOK_CALLBACKS()
 end
 
 ---@param state State
----@vararg string
----@return string
-function M.join_path(state, ...)
-	return platform.join_path(state.zuzu_path, ...)
-end
-
----@param state State
----@return string
-function M.get_hooks_path(state)
-	return M.join_path(state, "hooks." .. platform.EXTENSION)
-end
-
----@param state State
----@return string
-function M.get_setup_path(state)
-	return M.join_path(state, "setup." .. platform.EXTENSION)
-end
-
----@param state State
----@return string
-function M.get_builds_path(state)
-	return M.join_path(state, "builds")
-end
-
----@param state State
----@param name string
----@return string
-function M.get_build_path(state, name)
-	return M.join_path(state, "builds", name .. "." .. platform.EXTENSION)
-end
-
----@param state State
----@return string
-function M.get_editor_path(state)
-	return M.join_path(state, "profile_editor")
-end
-
----@param state State
 ---@return string
 function M.state_write_hooks(state)
 	local text = ""
@@ -106,8 +68,10 @@ function M.state_write_hooks(state)
 			end)
 	end
 
-	local hooks_handle = assert(io.open(M.get_hooks_path(state), "w+"))
-	assert(hooks_handle:write(text))
+	local hooks_handle = utils.assert(
+		io.open(Preferences.get_hooks_path(state.preferences), "w")
+	)
+	utils.assert(hooks_handle:write(text))
 	hooks_handle:close()
 
 	return text
@@ -115,8 +79,10 @@ end
 
 ---@param state State
 function M.state_write_setup(state)
-	local setup_handle = assert(io.open(M.get_setup_path(state), "w+"))
-	assert(setup_handle:write(Profile.setup(state.profile)))
+	local setup_handle = utils.assert(
+		io.open(Preferences.get_setup_path(state.preferences), "w")
+	)
+	utils.assert(setup_handle:write(Profile.setup(state.profile)))
 	setup_handle:close()
 end
 
@@ -125,16 +91,20 @@ end
 ---@param text string
 ---@param build_idx integer
 function M.state_write_build(state, name, text, build_idx)
-	text = string.format(
-		platform.choose("source %s\nsource %s\n", '. "%s"\n. "%s"\n'),
-		M.get_hooks_path(state),
-		M.get_setup_path(state)
-	) .. string.format(
-		"function zuzu_cmd {\n%s\n}\nzuzu_cmd 2>&1 | tee ~/.zuzu/last.txt",
-		text
+	text = platform.choose("source %s\nsource %s\n", '. "%s"\n. "%s"\n'):format(
+		Preferences.get_hooks_path(state.preferences),
+		Preferences.get_setup_path(state.preferences)
+	) .. (
+		"function %s {\n:\n%s\n}\n%s 2>&1 | tee %s"):format(
+		state.preferences.zuzu_function_name,
+		text,
+		state.preferences.zuzu_function_name,
+		Preferences.get_last_path(state.preferences)
 	)
-	local build_handle = assert(io.open(M.get_build_path(state, name), "w+"))
-	assert(build_handle:write(text))
+	local build_handle = utils.assert(
+		io.open(Preferences.get_build_path(state.preferences, name), "w+")
+	)
+	utils.assert(build_handle:write(text))
 	build_handle:close()
 	state.build_cache[name] = { state.profile, build_idx }
 	return text
@@ -147,7 +117,7 @@ function M.state_resolve_hooks(state)
 	-- # of core hooks does not change
 	-- core hook callbacks do not change
 	-- core hooks are always at the beginning of state.hooks
-	for i, hook_pair in ipairs(state.core_hook_callbacks) do
+	for i, hook_pair in ipairs(state.preferences.core_hooks) do
 		local hook_name = hook_pair[1]
 		local hook_func = hook_pair[2]
 		local hook_val = hook_func()
@@ -169,28 +139,24 @@ function M.state_resolve_hooks(state)
 	end
 	state.core_hooks_is_dirty = false
 	state.hooks_is_dirty = hooks_is_dirty
-	-- print(state.hooks_is_dirty)
 	state.hooks = new_hooks
 end
 
 ---@param state State
 ---@param path string
 ---@param build_idx integer
+---@return string? cmd
 ---@return string? errmsg
 function M.state_build(state, path, build_idx)
 	local profile = Atlas.resolve_profile(state.atlas, path)
 	if not profile then
-		error("No applicable build profile found.")
+		return nil, "No applicable build profile found."
 	end
 	state.profile = profile
 	M.state_resolve_hooks(state)
 	if state.hooks_is_dirty then
-		print(M.state_write_hooks(state))
+		M.state_write_hooks(state)
 		state.hooks_is_dirty = false
-	end
-	if state.setup_is_dirty then
-		print(M.state_write_setup(state))
-		state.setup_is_dirty = false
 	end
 	local build_name, build_text = Profile.build_info(profile, build_idx)
 	local build = state.build_cache[build_name]
@@ -200,18 +166,15 @@ function M.state_build(state, path, build_idx)
 		and build[2] == build_idx
 	)
 	if build_file_is_dirty then
-		print(M.state_write_build(state, build_name, build_text, build_idx))
+		M.state_write_setup(state)
+		M.state_write_build(state, build_name, build_text, build_idx)
 	end
-	vim.cmd(
-		"!source "
-			.. vim.fn.expand(
-				platform.join_path(
-					state.zuzu_path,
-					"builds",
-					build_name .. "." .. platform.EXTENSION
-				)
-			)
-	)
+	return "source "
+		.. platform.join_path(
+			state.preferences.path.root,
+			"builds",
+			build_name .. "." .. platform.EXTENSION
+		)
 end
 
 ---@param state State
@@ -232,7 +195,8 @@ end
 ---@param state State
 ---@param path string
 function M.state_edit_most_applicable_profile(state, path)
-	local profile, root = assert(Atlas.resolve_profile(state.atlas, path))
+	local profile, root = Atlas.resolve_profile(state.atlas, path)
+	profile = utils.assert(profile, "No applicable profile found.")
 	ProfileEditor.editor_open(
 		state.profile_editor,
 		{ [ProfileMap.get_id(root, profile)] = profile },
