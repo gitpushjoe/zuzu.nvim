@@ -71,7 +71,7 @@ function M.new(root, filetypes, depth, hooks, setup, builds)
 				return table.insert(hook_list, { hook_name, hook_value })
 			end
 			hook_name, hook_value =
-			hook:match(export_pattern_syntax .. "'(%.*)'$")
+			hook:match(export_pattern_syntax .. "'(.*)'$")
 			if hook_name then
 				return table.insert(hook_list, { hook_name, hook_value })
 			end
@@ -248,7 +248,9 @@ end
 function M.build_info(profile, build_idx)
 	local build = M.build(profile, build_idx)
 	if build:sub(1, 1) == "|" then
-		return utils.assert(build:match("|(.-)|(.*)"))
+		local name, text = build:match("|(.-)|(.*)")
+		utils.assert(name)
+		return name, text
 	end
 	return tostring(build_idx), build
 end

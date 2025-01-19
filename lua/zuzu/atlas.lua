@@ -1,6 +1,8 @@
 local Profile = require("zuzu.profile")
 local platform = require("zuzu.platform")
 local ProfileMap = require("zuzu.profile_map")
+local utils = require("zuzu.utils")
+local Preferences = require("zuzu.preferences")
 local M = {}
 
 ---@alias Atlas table<string, Profile[]>
@@ -23,7 +25,7 @@ function M.resolve_profile_generator(atlas, path)
 			end
 			for _, profile in ipairs(group) do
 				if Profile.accepts(profile, depth, extension) then
-					coroutine.yield(profile, directory)
+					coroutine.yield(profile, key)
 				end
 			end
 		end
@@ -126,6 +128,14 @@ function M.delete(atlas, root, profile)
 		end
 	end
 	return false
+end
+
+---@param atlas Atlas
+---@param atlas_path string
+function M.atlas_write(atlas, atlas_path)
+	local atlas_handle = utils.assert(io.open(atlas_path, "w"))
+	utils.assert(atlas_handle:write(vim.fn.json_encode(atlas)))
+	atlas_handle:close()
 end
 
 return M

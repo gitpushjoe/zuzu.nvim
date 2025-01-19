@@ -56,6 +56,20 @@ M.edit_all_profiles = function()
 	State.state_edit_all_profiles(state)
 end
 
+---@param hook_name string
+M.edit_hook = function(hook_name)
+	State.state_edit_hook(state, validate_path(), hook_name)
+end
+
+M.edit_hooks = function()
+	State.state_edit_hooks(state, validate_path())
+end
+
+---@param hook_name string
+M.set_hook = function(hook_name, hook_val)
+	State.state_set_hook(state, validate_path(), hook_name, hook_val)
+end
+
 M.setup = function(table)
 	if setup_called then
 		vim.notify(
@@ -104,6 +118,9 @@ M.setup = function(table)
 		profile_editor = {
 			preferences = preferences,
 			atlas = atlas,
+			cache_clear = function()
+				state.build_cache = {}
+			end
 		},
 	}
 	Preferences.bind_keybinds(preferences)

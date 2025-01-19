@@ -14,6 +14,7 @@ local M = {}
 ---@field state ProfileEditorState?
 ---@field preferences Preferences
 ---@field atlas Atlas
+---@field cache_clear function
 
 ---@class (exact) CreateAction
 ---@field type "create"
@@ -223,7 +224,7 @@ function M.editor_open(editor, profiles, link_profiles)
 					should_prompt_user = true
 				end
 			end
-			if not should_prompt_user then
+			if #actions == 0 then
 				vim.api.nvim_buf_delete(buf_id, {})
 				return
 			end
@@ -255,49 +256,49 @@ function M.editor_open(editor, profiles, link_profiles)
 				{ "[X]", "ZuzuDelete" },
 				{ "it" },
 			}, 1, 7, #prompt + 1, prompt)
-			vim.api.nvim_echo(prompt, false, {})
+			local apply = function()
+				editor.cache_clear()
+				M.editor_apply_actions(editor, actions)
+				Atlas.atlas_write(
+					editor.atlas,
+					Preferences.get_atlas_path(editor.preferences)
+				)
+				local action_counts = {}
+				for i = 1, #actions do
+					action = actions[i]
+					action_counts[action.type] = (
+						action_counts[action.type] or 0
+					) + 1
+				end
+				local action_strings = {}
+				for action_type, count in pairs(action_counts) do
+					table.insert(
+						action_strings,
+						("%s build profile%s %s"):format(
+							count,
+							count > 1 and "s" or "",
+							action_type == "overwrite" and "overwritten"
+								or action_type .. "d"
+						)
+					)
+				end
+				vim.notify(
+					table.concat(action_strings, "\n"),
+					vim.log.levels.INFO
+				)
+				vim.api.nvim_buf_delete(buf_id, {})
+			end
+			if not should_prompt_user then
+				apply()
+				return
+			end
 			vim.ui.input({ prompt = "" }, function(input)
 				if string.lower(string.sub(input, 1, 1)) == "x" then
 					vim.api.nvim_buf_delete(buf_id, {})
 					return
 				end
 				if string.lower(string.sub(input, 1, 1)) == "y" then
-					M.editor_apply_actions(editor, actions)
-					local atlas_handle = utils.assert(
-						io.open(
-							Preferences.get_atlas_path(editor.preferences),
-							"w"
-						)
-					)
-					utils.assert(
-						atlas_handle:write(vim.fn.json_encode(editor.atlas))
-					)
-					atlas_handle:close()
-					local action_counts = {}
-					for i = 1, #actions do
-						action = actions[i]
-						action_counts[action.type] = (
-							action_counts[action.type] or 0
-						) + 1
-					end
-					local action_strings = {}
-					for action_type, count in pairs(action_counts) do
-						table.insert(
-							action_strings,
-							("%s build profile%s %s"):format(
-								count,
-								count > 1 and "s" or "",
-								action_type == "overwrite" and "overwritten"
-									or action_type .. "d"
-							)
-						)
-					end
-					vim.notify(
-						table.concat(action_strings, "\n"),
-						vim.log.levels.INFO
-					)
-					vim.api.nvim_buf_delete(buf_id, {})
-					return
+					apply()
 				end
 			end)
 		end,

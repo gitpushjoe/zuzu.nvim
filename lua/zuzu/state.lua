@@ -61,11 +61,9 @@ function M.state_write_hooks(state)
 		local hook_name = hook_pair[1]
 		local hook_val = hook_pair[2]
 		text = text
-			.. platform.dispatch(function()
-				return string.format("export %s='%s'\n", hook_name, hook_val)
-			end, function()
-				return string.format("$env:%s = '%s'\n", hook_name, hook_val)
-			end)
+			.. platform
+				.choose("export %s='%s'\n", "$env:%s = '%s'\n")
+				:format(hook_name, hook_val:gsub("'", "'\\''"))
 	end
 
 	local hooks_handle = utils.assert(
@@ -94,8 +92,7 @@ function M.state_write_build(state, name, text, build_idx)
 	text = platform.choose("source %s\nsource %s\n", '. "%s"\n. "%s"\n'):format(
 		Preferences.get_hooks_path(state.preferences),
 		Preferences.get_setup_path(state.preferences)
-	) .. (
-		"function %s {\n:\n%s\n}\n%s 2>&1 | tee %s"):format(
+	) .. ("function %s {\n:\n%s\n}\n%s 2>&1 | tee %s"):format(
 		state.preferences.zuzu_function_name,
 		text,
 		state.preferences.zuzu_function_name,
@@ -223,6 +220,167 @@ function M.state_edit_all_applicable_profiles(state, path)
 		profile_map[ProfileMap.get_id(root, profile)] = profile
 	end
 	ProfileEditor.editor_open(state.profile_editor, profile_map, true)
+end
+
+---@param state State
+---@param path string
+function M.state_edit_hooks(state, path)
+	local profile = utils.assert(
+		Atlas.resolve_profile(state.atlas, path),
+		"No applicable build profile found."
+	)
+
+	local hooks = Profile.hooks(profile)
+	if #hooks == 0 then
+		utils.error("This profile has no hooks.")
+		return
+	end
+
+	local choices = {}
+	for _, hook_pair in ipairs(hooks) do
+		local hook_name = hook_pair[1]
+		if
+			not utils.str_ends_with(
+				hook_name,
+				state.preferences.hook_choices_suffix
+			)
+		then
+			table.insert(choices, hook_name)
+		end
+	end
+	utils.create_floating_options_window(
+		choices,
+		"zuzu///hooks",
+		function(hook_name)
+			return (':bd! | lua require("zuzu").edit_hook("%s")<CR>'):format(
+				hook_name
+			)
+		end
+	)
+end
+
+---@param state State
+---@param path string
+---@param hook_name string
+function M.state_edit_hook(state, path, hook_name)
+	local profile = utils.assert(
+		Atlas.resolve_profile(state.atlas, path),
+		"No applicable build profile found."
+	)
+
+	local hook_idx, hook_val, hook_choices
+	local direct_set = false
+
+	if utils.str_starts_with(hook_name, "\ndirect-set\n") then
+		hook_name = hook_name:sub(#"\ndirect-set\n" + 1, #hook_name)
+		direct_set = true
+	end
+	hook_idx, hook_val, hook_choices = (function()
+		for i, hook_pair in ipairs(Profile.hooks(profile)) do
+			if hook_pair[1] == hook_name then
+				hook_idx = i
+				hook_val = hook_pair[2]
+			elseif
+				not direct_set
+				and hook_pair[1]
+					== hook_name .. state.preferences.hook_choices_suffix
+			then
+				hook_choices = hook_pair[2]
+			end
+		end
+		if hook_idx then
+			return hook_idx, hook_val, hook_choices
+		end
+		utils.error(('Could not find hook "%s"'):format(hook_name))
+	end)()
+
+	if hook_choices then
+		local cmd = platform
+			.choose(
+				[[
+array=%s; for item in "${array[@]}"; do echo "$item"; done]],
+				[[
+$array = %s
+
+foreach ($item in $array) {
+    Write-Output $item
+}]]
+			)
+			:format(hook_choices)
+
+		hook_choices =
+			vim.split(vim.fn.system(cmd), platform.choose("\n", "\r\n"))
+
+		if hook_choices[#hook_choices] == "" then
+			table.remove(hook_choices)
+		end
+		table.insert(hook_choices, "{custom}")
+
+		utils.create_floating_options_window(
+			hook_choices,
+			"zuzu///hooks",
+			function(value)
+				if value == "{custom}" then
+					return (':bd! | lua require("zuzu").edit_hook("\\ndirect-set\\n%s")<CR>'):format(
+						hook_name
+					)
+				end
+				return (':bd! | lua require("zuzu").set_hook("%s", "%s")<CR>'):format(
+					hook_name,
+					value
+				)
+			end,
+			function(idx)
+				if idx == #hook_choices then
+					return 0
+				end
+				return idx
+			end
+		)
+		return
+	end
+
+	vim.ui.input({
+		prompt = ('Enter new value for hook "%s": '):format(hook_name),
+	}, function(input)
+		if not input then
+			return
+		end
+		print("\nUpdated hook to: " .. input)
+		local hooks = Profile.hooks(profile)
+		state.build_cache = {}
+		hooks[hook_idx][2] = input
+		Atlas.atlas_write(
+			state.atlas,
+			Preferences.get_atlas_path(state.preferences)
+		)
+	end)
+end
+
+---@param state State
+---@param path string
+---@param hook_name string
+---@param hook_val string
+M.state_set_hook = function(state, path, hook_name, hook_val)
+	local profile = utils.assert(
+		Atlas.resolve_profile(state.atlas, path),
+		"No applicable build profile found."
+	)
+
+	for _, hook_pair in ipairs(Profile.hooks(profile)) do
+		if hook_pair[1] == hook_name then
+			hook_pair[2] = tostring(hook_val)
+			state.build_cache = {}
+			print("Updated hook to: " .. hook_val)
+			Atlas.atlas_write(
+				state.atlas,
+				Preferences.get_atlas_path(state.preferences)
+			)
+			return
+		end
+	end
+
+	utils.error(('Could not find hook "%s"'):format(hook_name))
 end
 
 return M

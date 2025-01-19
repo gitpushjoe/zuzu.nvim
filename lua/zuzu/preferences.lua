@@ -26,6 +26,7 @@ local M = {}
 ---@field zuzu_function_name string
 ---@field keybinds Keybinds
 ---@field prompt_on_simple_edits boolean
+---@field hook_choices_suffix string
 
 ---@type Preferences
 M.DEFAULT = {
@@ -68,6 +69,7 @@ M.DEFAULT = {
 	},
 	zuzu_function_name = "zuzu_cmd",
 	prompt_on_simple_edits = false,
+	hook_choices_suffix = "__c",
 }
 
 ---@function function_name string
@@ -275,7 +277,7 @@ function M.bind_keybinds(preferences)
 		set_keybind(
 			keybind,
 			("reopen(%s)"):format(display_strategy_idx),
-			("zuzu: Show output of last run with style #%s"):format(
+			("zuzu: Show last ouput with style #%s"):format(
 				display_strategy_idx
 			)
 		)
@@ -288,7 +290,7 @@ function M.bind_keybinds(preferences)
 	set_keybind(
 		keybinds.new_project_profile,
 		"new_project_profile()",
-		"zuzu: Create new build profile for project"
+		"zuzu: Create new profile for project"
 	)
 	set_keybind(keybinds.edit_profile, "edit_profile()", "zuzu: Edit profile")
 	set_keybind(
@@ -300,6 +302,11 @@ function M.bind_keybinds(preferences)
 		keybinds.edit_all_profiles,
 		"edit_all_profiles()",
 		"zuzu: Edit all profiles"
+	)
+	set_keybind(
+		keybinds.edit_hooks,
+		"edit_hooks()",
+		"zuzu: Edit hooks"
 	)
 end
 
