@@ -1,3 +1,4 @@
+local Atlas = require("zuzu.atlas")
 local Preferences = require("zuzu.preferences")
 local State = require("zuzu.state")
 local utils = require("zuzu.utils")
@@ -22,9 +23,12 @@ local validate_path = function()
 end
 
 M.run = function(build_idx, display_strategy_idx)
-	utils.assert(state)
-	utils.assert(type(build_idx) == type(1))
-	utils.assert(type(display_strategy_idx) == type(1))
+	utils.assert(state, "setup() has failed or has not been called")
+	utils.assert(type(build_idx) == type(1), "`build_idx` should be an integer")
+	utils.assert(
+		type(display_strategy_idx) == type(1),
+		"`display_strategy_idx` should be an integer"
+	)
 	local cmd =
 		utils.assert(State.state_build(state, validate_path(), build_idx))
 	preferences.display_strategies[display_strategy_idx](cmd)
@@ -76,6 +80,7 @@ M.setup = function(table)
 			"zuzu.nvim: setup cannont be called twice",
 			vim.log.levels.WARN
 		)
+		return
 	end
 	vim.cmd([[highlight ZuzuCreate guifg=LightGreen]])
 	vim.cmd([[highlight ZuzuReplace guifg=Violet]])
@@ -87,40 +92,18 @@ M.setup = function(table)
 		Preferences.new('require("zuzu.nvim").setup(...)', table or {})
 	)
 	Preferences.initialize(preferences)
-	atlas = (function()
-		local handle = io.open(Preferences.get_atlas_path(preferences), "r")
-		if not handle then
-			handle = utils.assert(
-				io.open(Preferences.get_atlas_path(preferences), "w"),
-				"Could not create file "
-					.. Preferences.get_atlas_path(preferences)
-			)
-			handle:close()
-			handle = utils.assert(
-				io.open(Preferences.get_atlas_path(preferences), "r")
-			)
-		end
-		local text = handle:read("*a")
-		handle:close()
-		_, table = pcall(function()
-			return (text == "" or text == "[]") and {}
-				or vim.fn.json_decode(text)
-		end)
-		return table or {}
-	end)()
+	atlas = Atlas.atlas_read(Preferences.get_atlas_path(preferences))
 	state = {
 		preferences = preferences,
 		atlas = atlas,
 		hooks = {},
 		build_cache = {},
-		hooks_is_dirty = true,
-		core_hooks_is_dirty = true,
 		profile_editor = {
 			preferences = preferences,
 			atlas = atlas,
 			cache_clear = function()
 				state.build_cache = {}
-			end
+			end,
 		},
 	}
 	Preferences.bind_keybinds(preferences)

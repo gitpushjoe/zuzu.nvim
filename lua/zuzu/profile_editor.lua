@@ -70,18 +70,20 @@ function M.profile_text(editor, id, profile)
 			local hook_text = ""
 			for _, hook_pair in ipairs(Profile.hooks(profile)) do
 				local hook_name = hook_pair[1]
-				local hook_val = hook_pair[2]
-				hook_val = string.find(hook_val, "%s")
-						and ('"%s"'):format(hook_val)
-					or hook_val
+				local hook_val = hook_pair[2] or ""
+				hook_val = utils.str_ends_with(
+					hook_name,
+					editor.preferences.hook_choices_suffix
+				) and hook_val or string.find(hook_val, "%s") and ('"%s"'):format(
+					hook_val
+				) or hook_val
 				hook_text = hook_text
 					.. (platform.choose("\nexport %s=%s", "\n$%s=%s")):format(
 						hook_name,
 						hook_val
 					)
 			end
-			return hook_text
-				.. (hook_text ~= "" and platform.choose("\n", "\r\n") or "")
+			return hook_text .. (hook_text ~= "" and platform.NEWLINE or "")
 		end)(),
 		Profile.setup(profile)
 	)
@@ -91,7 +93,7 @@ function M.profile_text(editor, id, profile)
 		if name then
 			build_text = ("### {{ name: %s }}%s"):format(
 				name,
-				platform.choose("\n", "\r\n") .. rest
+				platform.NEWLINE .. rest
 			)
 		end
 		text = text .. ([[
@@ -106,8 +108,17 @@ end
 ---@param root string
 function M.editor_open_new_profile(editor, root)
 	local _, _, extension = utils.get_parent_directory_basename_extension(root)
-	local profile = Profile.new(root, extension, "0", {}, "\n", {})
-	M.editor_open(editor, { [ProfileMap.get_id(root, profile)] = profile })
+	local profile = Profile.new(
+		root,
+		extension,
+		"0",
+		{},
+		"\n",
+		{},
+		editor.preferences.hook_choices_suffix
+	)
+	local id = ProfileMap.get_id(root, profile)
+	M.editor_open(editor, { [id] = profile })
 end
 
 ---@param editor ProfileEditor
@@ -115,7 +126,15 @@ end
 function M.editor_open_new_profile_at_directory(editor, root)
 	local directory, _, extension =
 		utils.get_parent_directory_basename_extension(root)
-	local profile = Profile.new(directory, extension, "-1", {}, "\n", {})
+	local profile = Profile.new(
+		directory,
+		extension,
+		"-1",
+		{},
+		"\n",
+		{},
+		editor.preferences.hook_choices_suffix
+	)
 	M.editor_open(editor, { [ProfileMap.get_id(directory, profile)] = profile })
 end
 
@@ -129,16 +148,16 @@ function M.editor_open(editor, profiles, link_profiles)
 		local res = ""
 		for id, profile in pairs(profiles) do
 			res = res
-				.. (res ~= "" and platform.choose("\n", "\r\n") or "")
+				.. (res ~= "" and platform.NEWLINE or "")
 				.. M.profile_text(editor, id, profile)
 		end
 		return res
 	end)()
 
-	local lines = vim.split(text, platform.choose("\n", "\r\n"))
+	local lines = vim.split(text, platform.NEWLINE)
 	local cursor_pos = (function()
 		local header = ("### {{ %s }}"):format(
-			editor.preferences.keybinds.build[1]
+			editor.preferences.keybinds.build[1][1]
 		)
 		for i = #lines, 1, -1 do
 			if lines[i] == header then
@@ -185,107 +204,16 @@ function M.editor_open(editor, profiles, link_profiles)
 				editor,
 				vim.api.nvim_buf_get_lines(buf_id, 0, -1, true)
 			)
-			local should_prompt_user = false
-			---@type Action[]
-			local actions = {}
-			---@type Action
-			local action
-			for id, profile in pairs(profile_map) do
-				local existing_profile = Atlas.find_by_id(editor.atlas, id)
-				if existing_profile then
-					local profile_is_linked = editor.state.linked_profiles[id]
-						~= nil
-					if not Profile.equals(profile, existing_profile) then
-						action = {
-							type = profile_is_linked and "replace"
-								or "overwrite",
-							id = id,
-							profile = profile,
-							other = existing_profile,
-						}
-						should_prompt_user = should_prompt_user
-							or (
-								editor.preferences.prompt_on_simple_edits
-								and not profile_is_linked
-							)
-						table.insert(actions, action)
-					end
-				else
-					---@type CreateAction
-					action = { type = "create", id = id, profile = profile }
-					table.insert(actions, action)
-				end
-			end
-			for id, profile in pairs(editor.state.linked_profiles) do
-				if not profile_map[id] then
-					---@type DeleteAction
-					action = { type = "delete", id = id, profile = profile }
-					table.insert(actions, action)
-					should_prompt_user = true
-				end
-			end
+			local actions, should_prompt_user =
+				M.generate_actions(editor, profile_map)
 			if #actions == 0 then
 				vim.api.nvim_buf_delete(buf_id, {})
 				return
 			end
-			local prompt = { { "Looks good?" } }
-			for i = 1, #actions do
-				action = actions[i]
-				local root, filetypes, depth = ProfileMap.split_id(action.id)
-				local type = action.type
-				table.insert(prompt, {
-					('\n    [ %s%s ] root = %s, filetypes = "%s", depth = %s'):format(
-						(" "):rep(#"overwrite" - #type),
-						type,
-						root == "" and "/" or root,
-						filetypes,
-						depth
-					),
-					("Zuzu%s%s"):format(
-						type:sub(1, 1):upper(),
-						type:sub(2, #type)
-					),
-				})
-			end
-			table.move({
-				{ "\n\n" },
-				{ "[Y]", "ZuzuHighlight" },
-				{ "es  " },
-				{ "[N]", "ZuzuHighlight" },
-				{ "o  e" },
-				{ "[X]", "ZuzuDelete" },
-				{ "it" },
-			}, 1, 7, #prompt + 1, prompt)
+			local prompt = M.generate_prompt_from_actions(actions)
+			vim.api.nvim_echo(prompt, false, {})
 			local apply = function()
-				editor.cache_clear()
-				M.editor_apply_actions(editor, actions)
-				Atlas.atlas_write(
-					editor.atlas,
-					Preferences.get_atlas_path(editor.preferences)
-				)
-				local action_counts = {}
-				for i = 1, #actions do
-					action = actions[i]
-					action_counts[action.type] = (
-						action_counts[action.type] or 0
-					) + 1
-				end
-				local action_strings = {}
-				for action_type, count in pairs(action_counts) do
-					table.insert(
-						action_strings,
-						("%s build profile%s %s"):format(
-							count,
-							count > 1 and "s" or "",
-							action_type == "overwrite" and "overwritten"
-								or action_type .. "d"
-						)
-					)
-				end
-				vim.notify(
-					table.concat(action_strings, "\n"),
-					vim.log.levels.INFO
-				)
+				M.apply_actions(editor, actions)
 				vim.api.nvim_buf_delete(buf_id, {})
 			end
 			if not should_prompt_user then
@@ -295,14 +223,40 @@ function M.editor_open(editor, profiles, link_profiles)
 			vim.ui.input({ prompt = "" }, function(input)
 				if string.lower(string.sub(input, 1, 1)) == "x" then
 					vim.api.nvim_buf_delete(buf_id, {})
-					return
-				end
-				if string.lower(string.sub(input, 1, 1)) == "y" then
+				elseif string.lower(string.sub(input, 1, 1)) == "y" then
 					apply()
 				end
 			end)
 		end,
 	})
+end
+
+---@param editor ProfileEditor
+---@param actions Action[]
+function M.apply_actions(editor, actions)
+	editor.cache_clear()
+	M.editor_apply_actions(editor, actions)
+	Atlas.atlas_write(
+		editor.atlas,
+		Preferences.get_atlas_path(editor.preferences)
+	)
+	local action_counts = {}
+	for _, action in ipairs(actions) do
+		action_counts[action.type] = (action_counts[action.type] or 0) + 1
+	end
+	local action_strings = {}
+	for action_type, count in pairs(action_counts) do
+		table.insert(
+			action_strings,
+			("%s build profile%s %s"):format(
+				count,
+				count > 1 and "s" or "",
+				action_type == "overwrite" and "overwritten"
+					or action_type .. "d"
+			)
+		)
+	end
+	vim.notify(table.concat(action_strings, "\n"), vim.log.levels.INFO)
 end
 
 ---@param editor ProfileEditor
@@ -423,10 +377,85 @@ function M.parse_editor_lines(editor, lines)
 		table.insert(builds, concat_lines(line, next_line - 1))
 		line = next_line
 		local profile, root_name =
-			Profile.new(root, filetypes, depth, hooks, setup, builds)
+			Profile.new(root, filetypes, depth, hooks, setup, builds, editor.preferences.hook_choices_suffix)
 		ProfileMap.map_insert(profiles, root_name, profile)
 	end
 	return profiles
+end
+
+---@param editor ProfileEditor
+---@param profile_map ProfileMap
+---@return Action[] actions
+---@return boolean should_prompt_user
+function M.generate_actions(editor, profile_map)
+	local should_prompt_user = false
+	---@type Action[]
+	local actions = {}
+	---@type Action
+	local action
+	for id, profile in pairs(profile_map) do
+		local existing_profile = Atlas.find_by_id(editor.atlas, id)
+		if existing_profile then
+			local profile_is_linked = editor.state.linked_profiles[id] ~= nil
+			if not Profile.equals(profile, existing_profile) then
+				action = {
+					type = profile_is_linked and "replace" or "overwrite",
+					id = id,
+					profile = profile,
+					other = existing_profile,
+				}
+				should_prompt_user = should_prompt_user
+				or (
+				editor.preferences.prompt_on_simple_edits
+				and not profile_is_linked
+				)
+				table.insert(actions, action)
+			end
+		else
+			---@type CreateAction
+			action = { type = "create", id = id, profile = profile }
+			table.insert(actions, action)
+		end
+	end
+	for id, profile in pairs(editor.state.linked_profiles) do
+		if not profile_map[id] then
+			---@type DeleteAction
+			action = { type = "delete", id = id, profile = profile }
+			table.insert(actions, action)
+			should_prompt_user = true
+		end
+	end
+	return actions, should_prompt_user
+end
+
+---@param actions Action[]
+---@return string[][]
+function M.generate_prompt_from_actions(actions)
+	local prompt = { { "Looks good?" } }
+	for _, action in ipairs(actions) do
+		local root, filetypes, depth = ProfileMap.split_id(action.id)
+		local type = action.type
+		table.insert(prompt, {
+			('\n    [ %s%s ] root = %s, filetypes = "%s", depth = %s'):format(
+				(" "):rep(#"overwrite" - #type),
+				type,
+				root == "" and "/" or root,
+				filetypes,
+				depth
+			),
+			("Zuzu%s%s"):format(type:sub(1, 1):upper(), type:sub(2, #type)),
+		})
+	end
+	table.move({
+		{ "\n\n" },
+		{ "[Y]", "ZuzuHighlight" },
+		{ "es  " },
+		{ "[N]", "ZuzuHighlight" },
+		{ "o  e" },
+		{ "[X]", "ZuzuDelete" },
+		{ "it" },
+		}, 1, 7, #prompt + 1, prompt)
+	return prompt
 end
 
 ---@param editor ProfileEditor

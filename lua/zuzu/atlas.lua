@@ -2,7 +2,6 @@ local Profile = require("zuzu.profile")
 local platform = require("zuzu.platform")
 local ProfileMap = require("zuzu.profile_map")
 local utils = require("zuzu.utils")
-local Preferences = require("zuzu.preferences")
 local M = {}
 
 ---@alias Atlas table<string, Profile[]>
@@ -12,9 +11,8 @@ local M = {}
 ---@return fun(): Profile?, string?
 function M.resolve_profile_generator(atlas, path)
 	return coroutine.wrap(function()
-		-- TODO(gitpushjoe): assert path exists, and has extension
 		local directory, _, extension =
-			path:match("(.*)" .. platform.PATH_SEP .. "(.*)%.(%w*)")
+			utils.get_parent_directory_basename_extension(path)
 
 		---@param key string?
 		---@param depth integer
@@ -31,8 +29,7 @@ function M.resolve_profile_generator(atlas, path)
 		end
 
 		local current_depth = 0
-		local profile = nil
-		profile = find_first_accepting_profile(path, current_depth)
+		local profile = find_first_accepting_profile(path, current_depth)
 			or find_first_accepting_profile(directory, current_depth)
 		if profile then
 			coroutine.yield(profile, path)
@@ -128,6 +125,25 @@ function M.delete(atlas, root, profile)
 		end
 	end
 	return false
+end
+
+---@param atlas_path string
+function M.atlas_read(atlas_path)
+	local handle = io.open(atlas_path)
+	if not handle then
+		handle = utils.assert(
+			io.open(atlas_path, "w"),
+			"Could not create file " .. atlas_path
+		)
+		handle:close()
+		handle = utils.assert(io.open(atlas_path, "r"))
+	end
+	local text = handle:read("*a")
+	handle:close()
+	local _, table = pcall(function()
+		return (text == "" or text == "[]") and {} or vim.fn.json_decode(text)
+	end)
+	return table or {}
 end
 
 ---@param atlas Atlas

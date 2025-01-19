@@ -15,24 +15,38 @@ local M = {}
 ---@param hooks string[]
 ---@param setup string
 ---@param builds string[]
+---@param hook_choices_suffix string
 ---@return Profile
 ---@return string root_name
-function M.new(root, filetypes, depth, hooks, setup, builds)
+function M.new(
+	root,
+	filetypes,
+	depth,
+	hooks,
+	setup,
+	builds,
+	hook_choices_suffix
+)
 	utils.assert(
-		root ~= "" or root == "*",
+		root ~= "",
 		"Unexpected empty root. Use {{ root: * }} to target all files."
 	)
 	if root ~= "*" then
 		local handle = utils.assert(io.open(root, "r"))
 		utils.assert(
+			root:sub(1, 1) ~= ".",
+			("Do not use relative paths in root."):format(root)
+		)
+		utils.assert(
 			root:sub(1, 1) ~= "." and handle ~= nil,
-			("Root does not exist: %s. Do not use relative paths."):format(root)
+			("Root does not exist: %s."):format(root)
 		)
 		handle:close()
 	else
 		root = ""
 	end
 	root = root:sub(#root, #root) == "/" and root:sub(1, #root - 1) or root
+
 	utils.assert(
 		filetypes ~= "",
 		"Unexpected empty filetypes. Use {{ filetypes: * }} to target all filetypes."
@@ -47,38 +61,42 @@ function M.new(root, filetypes, depth, hooks, setup, builds)
 			)
 		)
 	end
+
 	local depth_value = tonumber(depth)
 	utils.assert(
-		depth_value ~= nil
-			and depth_value ~= math.huge
-			and math.floor(depth_value) == depth_value
-			and depth_value >= -1,
+		depth_value ~= math.huge,
 		("Invalid depth: %s. Use -1 for any depth."):format(depth)
 	)
+	utils.assert(
+		depth_value ~= nil and math.floor(depth_value) == depth_value,
+		("Invalid depth: %s."):format(depth)
+	)
+
 	---@type string[][]
 	local hook_list = {}
 	for _, hook in ipairs(hooks) do
-		--- TODO(gitpushjoe): escape quotation marks inside value
 		(function()
 			if hook == "" then
 				return
 			end
 			local export_pattern_syntax =
 				platform.choose("^export (%S-)=", "^$(%S-)%s?=%s?")
-			local hook_name, hook_value =
+			local hook_name, hook_val =
 				hook:match(export_pattern_syntax .. '"(.*)"$')
 			if hook_name then
-				return table.insert(hook_list, { hook_name, hook_value })
+				return table.insert(hook_list, { hook_name, hook_val })
 			end
-			hook_name, hook_value =
-			hook:match(export_pattern_syntax .. "'(.*)'$")
+			hook_name, hook_val = hook:match(export_pattern_syntax .. "'(.*)'$")
 			if hook_name then
-				return table.insert(hook_list, { hook_name, hook_value })
+				return table.insert(hook_list, { hook_name, hook_val })
 			end
-			hook_name, hook_value =
-				hook:match(export_pattern_syntax .. "(%S-)$")
+			hook_name, hook_val = hook:match(export_pattern_syntax .. "(%S-)$")
 			if hook_name then
-				return table.insert(hook_list, { hook_name, hook_value })
+				return table.insert(hook_list, { hook_name, hook_val })
+			end
+			hook_name, hook_val = hook:match(export_pattern_syntax .. "(.-)$")
+			if utils.str_ends_with(hook_name, hook_choices_suffix) then
+				return table.insert(hook_list, { hook_name, hook_val })
 			end
 			utils.error(
 				("Could not parse hook: %s. Format is " .. platform.choose(
@@ -88,6 +106,7 @@ function M.new(root, filetypes, depth, hooks, setup, builds)
 			)
 		end)()
 	end
+
 	local parsed_builds = {}
 	for _, build in ipairs(builds) do
 		utils.assert(
@@ -105,6 +124,7 @@ function M.new(root, filetypes, depth, hooks, setup, builds)
 		end
 		table.insert(parsed_builds, build)
 	end
+
 	return {
 		filetype_list,
 		depth_value,
@@ -149,7 +169,7 @@ end
 ---@param build_idx integer
 ---@return string
 function M.build(profile, build_idx)
-	return M.builds(profile)[build_idx] or platform.choose("\n", "\r\n")
+	return M.builds(profile)[build_idx] or platform.NEWLINE
 end
 
 ---@param profile1 Profile
@@ -249,7 +269,6 @@ function M.build_info(profile, build_idx)
 	local build = M.build(profile, build_idx)
 	if build:sub(1, 1) == "|" then
 		local name, text = build:match("|(.-)|(.*)")
-		utils.assert(name)
 		return name, text
 	end
 	return tostring(build_idx), build

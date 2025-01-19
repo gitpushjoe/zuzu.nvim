@@ -25,33 +25,7 @@ local M = {}
 ---@field profile Profile?
 ---@field preferences Preferences
 ---@field build_cache table<string, BuildPair>
----@field hooks_is_dirty boolean
----@field core_hooks_is_dirty boolean
 ---@field profile_editor ProfileEditor
-
----@return HookCallback[]
-function M.DEFAULT_CORE_HOOK_CALLBACKS()
-	return {
-		{
-			"file",
-			function()
-				return vim.fn.expand("%:p")
-			end,
-		},
-		{
-			"dir",
-			function()
-				return vim.fn.expand("%:p:h")
-			end,
-		},
-		{
-			"parent",
-			function()
-				return vim.fn.expand("%:p:h:h")
-			end,
-		},
-	}
-end
 
 ---@param state State
 ---@return string
@@ -66,50 +40,51 @@ function M.state_write_hooks(state)
 				:format(hook_name, hook_val:gsub("'", "'\\''"))
 	end
 
-	local hooks_handle = utils.assert(
-		io.open(Preferences.get_hooks_path(state.preferences), "w")
-	)
-	utils.assert(hooks_handle:write(text))
-	hooks_handle:close()
+	utils.write_to_path(Preferences.get_hooks_path(state.preferences), text)
 
 	return text
 end
 
 ---@param state State
 function M.state_write_setup(state)
-	local setup_handle = utils.assert(
-		io.open(Preferences.get_setup_path(state.preferences), "w")
+	utils.write_to_path(
+		Preferences.get_setup_path(state.preferences),
+		Profile.setup(state.profile)
 	)
-	utils.assert(setup_handle:write(Profile.setup(state.profile)))
-	setup_handle:close()
 end
 
 ---@param state State
----@param name string
----@param text string
+---@param build_name string
+---@param build_text string
 ---@param build_idx integer
-function M.state_write_build(state, name, text, build_idx)
-	text = platform.choose("source %s\nsource %s\n", '. "%s"\n. "%s"\n'):format(
-		Preferences.get_hooks_path(state.preferences),
-		Preferences.get_setup_path(state.preferences)
-	) .. ("function %s {\n:\n%s\n}\n%s 2>&1 | tee %s"):format(
-		state.preferences.zuzu_function_name,
-		text,
-		state.preferences.zuzu_function_name,
-		Preferences.get_last_path(state.preferences)
+function M.state_write_build(state, build_name, build_text, build_idx)
+	utils.write_to_path(
+		Preferences.get_build_path(state.preferences, build_name),
+		platform.choose("source %s\nsource %s\n", '. "%s"\n. "%s"\n'):format(
+			Preferences.get_hooks_path(state.preferences),
+			Preferences.get_setup_path(state.preferences)
+		)
+			.. ("function %s {%s%s%s%s%s}%s%s 2>&1 | tee %s"):format(
+				state.preferences.zuzu_function_name,
+				platform.NEWLINE,
+				platform.choose(":", ";"), -- no-op
+				platform.NEWLINE,
+				build_text,
+				platform.NEWLINE,
+				platform.NEWLINE,
+				state.preferences.zuzu_function_name,
+				Preferences.get_last_path(state.preferences)
+			)
 	)
-	local build_handle = utils.assert(
-		io.open(Preferences.get_build_path(state.preferences, name), "w+")
-	)
-	utils.assert(build_handle:write(text))
-	build_handle:close()
-	state.build_cache[name] = { state.profile, build_idx }
-	return text
+	state.build_cache[build_name] = { state.profile, build_idx }
+	return build_text
 end
 
 ---@param state State
+---@return boolean hooks_is_dirty
 function M.state_resolve_hooks(state)
 	local new_hooks = {}
+	local hooks_is_dirty = false
 	-- invariants:
 	-- # of core hooks does not change
 	-- core hook callbacks do not change
@@ -119,12 +94,10 @@ function M.state_resolve_hooks(state)
 		local hook_func = hook_pair[2]
 		local hook_val = hook_func()
 		table.insert(new_hooks, { hook_name, hook_val })
-		state.core_hooks_is_dirty = state.core_hooks_is_dirty
-			or hook_val ~= state.hooks[i][2]
+		hooks_is_dirty = hooks_is_dirty or hook_val ~= (state.hooks[i] or {})[2]
 	end
 	local hooks = Profile.hooks(state.profile)
-	local hooks_is_dirty = state.core_hooks_is_dirty
-		or #hooks ~= #state.hooks - #new_hooks
+	hooks_is_dirty = hooks_is_dirty or #hooks ~= #state.hooks - #new_hooks
 	for _, hook_pair in ipairs(hooks) do
 		local idx = #new_hooks + 1
 		new_hooks[idx] = { hook_pair[1], hook_pair[2] }
@@ -134,9 +107,8 @@ function M.state_resolve_hooks(state)
 				or new_hooks[idx][2] ~= state.hooks[idx][2]
 			)
 	end
-	state.core_hooks_is_dirty = false
-	state.hooks_is_dirty = hooks_is_dirty
 	state.hooks = new_hooks
+	return hooks_is_dirty
 end
 
 ---@param state State
@@ -150,10 +122,9 @@ function M.state_build(state, path, build_idx)
 		return nil, "No applicable build profile found."
 	end
 	state.profile = profile
-	M.state_resolve_hooks(state)
-	if state.hooks_is_dirty then
+	local hooks_is_dirty = M.state_resolve_hooks(state)
+	if hooks_is_dirty then
 		M.state_write_hooks(state)
-		state.hooks_is_dirty = false
 	end
 	local build_name, build_text = Profile.build_info(profile, build_idx)
 	local build = state.build_cache[build_name]
@@ -167,11 +138,7 @@ function M.state_build(state, path, build_idx)
 		M.state_write_build(state, build_name, build_text, build_idx)
 	end
 	return "source "
-		.. platform.join_path(
-			state.preferences.path.root,
-			"builds",
-			build_name .. "." .. platform.EXTENSION
-		)
+		.. Preferences.get_build_path(state.preferences, build_name)
 end
 
 ---@param state State
@@ -248,6 +215,11 @@ function M.state_edit_hooks(state, path)
 			table.insert(choices, hook_name)
 		end
 	end
+
+	if #choices == 1 then
+		M.state_edit_hook(state, path, choices[1])
+	end
+
 	utils.create_floating_options_window(
 		choices,
 		"zuzu///hooks",
@@ -271,10 +243,11 @@ function M.state_edit_hook(state, path, hook_name)
 	local hook_idx, hook_val, hook_choices
 	local direct_set = false
 
-	if utils.str_starts_with(hook_name, "\ndirect-set\n") then
-		hook_name = hook_name:sub(#"\ndirect-set\n" + 1, #hook_name)
+	if utils.str_starts_with(hook_name, "zuzu-direct-set: ") then
+		hook_name = hook_name:sub(#"zuzu-direct-set: " + 1, #hook_name)
 		direct_set = true
 	end
+
 	hook_idx, hook_val, hook_choices = (function()
 		for i, hook_pair in ipairs(Profile.hooks(profile)) do
 			if hook_pair[1] == hook_name then
@@ -297,8 +270,7 @@ function M.state_edit_hook(state, path, hook_name)
 	if hook_choices then
 		local cmd = platform
 			.choose(
-				[[
-array=%s; for item in "${array[@]}"; do echo "$item"; done]],
+				[[array=%s; for item in "${array[@]}"; do echo "$item"; done]],
 				[[
 $array = %s
 
@@ -308,8 +280,7 @@ foreach ($item in $array) {
 			)
 			:format(hook_choices)
 
-		hook_choices =
-			vim.split(vim.fn.system(cmd), platform.choose("\n", "\r\n"))
+		hook_choices = vim.split(vim.fn.system(cmd), platform.NEWLINE)
 
 		if hook_choices[#hook_choices] == "" then
 			table.remove(hook_choices)
@@ -318,17 +289,17 @@ foreach ($item in $array) {
 
 		utils.create_floating_options_window(
 			hook_choices,
-			"zuzu///hooks",
+			"zuzu///hooks/" .. hook_name,
 			function(value)
 				if value == "{custom}" then
-					return (':bd! | lua require("zuzu").edit_hook("\\ndirect-set\\n%s")<CR>'):format(
-						hook_name
-					)
+					return (
+						':bd! | lua require("zuzu").edit_hook'
+						.. '("zuzu-direct-set: %s")<CR>'
+					):format(hook_name)
 				end
-				return (':bd! | lua require("zuzu").set_hook("%s", "%s")<CR>'):format(
-					hook_name,
-					value
-				)
+				return (
+					':bd! | lua require("zuzu").set_hook' .. '("%s", "%s")<CR>'
+				):format(hook_name, value)
 			end,
 			function(idx)
 				if idx == #hook_choices then
@@ -348,8 +319,8 @@ foreach ($item in $array) {
 		end
 		print("\nUpdated hook to: " .. input)
 		local hooks = Profile.hooks(profile)
-		state.build_cache = {}
 		hooks[hook_idx][2] = input
+		state.build_cache = {}
 		Atlas.atlas_write(
 			state.atlas,
 			Preferences.get_atlas_path(state.preferences)

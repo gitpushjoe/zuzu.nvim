@@ -18,7 +18,9 @@ M.choose = function(unix_version, win_version)
 	return M.PLATFORM == "unix" and unix_version or win_version
 end
 
-M.EXTENSION = M.PLATFORM == "win" and "ps1" or "sh"
+M.EXTENSION = M.choose(".sh", ".ps1")
+
+M.NEWLINE = M.choose("\n", "\r\n")
 
 ---@vararg string
 M.join_path = function(...)

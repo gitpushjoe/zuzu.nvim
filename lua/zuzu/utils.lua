@@ -9,6 +9,9 @@ end
 ---@param err string?
 M.error = function(err)
 	vim.notify("zuzu: " .. (err or ""), vim.log.levels.ERROR)
+	vim.schedule(function()
+		print(" ")
+	end)
 	error(nil, 0)
 end
 
@@ -27,14 +30,24 @@ end
 ---@param prefix string
 ---@return boolean
 M.str_starts_with = function(str, prefix)
-	return string.sub(str, 1, #prefix) == prefix
+	return str and prefix and (string.sub(str, 1, #prefix) == prefix)
 end
 
 ---@param str string
 ---@param suffix string
 ---@return boolean
 M.str_ends_with = function(str, suffix)
-	return suffix == "" or string.sub(str, -#suffix) == suffix
+	return str
+		and suffix
+		and (suffix == "" or string.sub(str, -#suffix) == suffix)
+end
+
+---@param path string
+---@param content string
+function M.write_to_path(path, content)
+	local handle = M.assert(io.open(path, "w"), "Could not open " .. path)
+	M.assert(handle:write(content), "Could not write to " .. path)
+	handle:close()
 end
 
 ---@param choices string[]

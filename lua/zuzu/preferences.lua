@@ -56,7 +56,7 @@ M.DEFAULT = {
 		require("zuzu.display_strategies").split_below,
 	},
 	path = {
-		root = platform.join_path(tostring(vim.fn.stdpath("data")), ".zuzu"),
+		root = platform.join_path(tostring(vim.fn.stdpath("data")), "zuzu"),
 		atlas_filename = "atlas.json",
 		last_output_filename = "last.txt",
 	},
@@ -209,13 +209,13 @@ end
 ---@param preferences Preferences
 ---@return string
 function M.get_hooks_path(preferences)
-	return M.join_path(preferences, "hooks." .. platform.EXTENSION)
+	return M.join_path(preferences, "hooks" .. platform.EXTENSION)
 end
 
 ---@param preferences Preferences
 ---@return string
 function M.get_setup_path(preferences)
-	return M.join_path(preferences, "setup." .. platform.EXTENSION)
+	return M.join_path(preferences, "setup" .. platform.EXTENSION)
 end
 
 ---@param preferences Preferences
@@ -228,7 +228,7 @@ end
 ---@param name string
 ---@return string
 function M.get_build_path(preferences, name)
-	return M.join_path(preferences, "builds", name .. "." .. platform.EXTENSION)
+	return M.join_path(preferences, "builds", name .. platform.EXTENSION)
 end
 
 ---@param preferences Preferences
