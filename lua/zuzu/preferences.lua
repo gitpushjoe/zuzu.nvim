@@ -156,6 +156,7 @@ M.table_join = function(function_name, arg_name, src_table, table)
 		if err then
 			return nil, err
 		end
+		table[key] = table[key] or src_table[key]
 		src_table[key] = table[key] or src_table[key]
 	end
 	return src_table
