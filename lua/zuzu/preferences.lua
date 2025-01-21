@@ -18,7 +18,7 @@ local M = {}
 ---@field last_output_filename string
 
 ---@class (exact) Preferences
----@field profile_count integer
+---@field build_count integer
 ---@field display_strategy_count integer
 ---@field display_strategies (fun(string): nil)[]
 ---@field path PathPreferences
@@ -30,7 +30,7 @@ local M = {}
 
 ---@type Preferences
 M.DEFAULT = {
-	profile_count = 4,
+	build_count = 4,
 	display_strategy_count = 3,
 	keybinds = {
 		build = {
@@ -170,10 +170,10 @@ function M.new(function_name, table)
 	if root:sub(#root, #root) == platform.PATH_SEP then
 		preferences_table.path.root = root:sub(1, #root - 1)
 	end
-	local profile_count = preferences_table.profile_count
+	local build_count = preferences_table.build_count
 	local display_strategy_count = preferences_table.display_strategy_count
-	if profile_count == 0 then
-		return nil, "`profile_count` must be at least 1."
+	if build_count == 0 then
+		return nil, "`build_count` must be at least 1."
 	end
 	if display_strategy_count == 0 then
 		return nil, "`display_strategy_count` must be at least 1."
@@ -182,7 +182,7 @@ function M.new(function_name, table)
 		return nil,
 			"The length of `keybinds.build` cannot be greater than `display_strategy_count`."
 	end
-	if #preferences_table.keybinds.build[1] ~= profile_count then
+	if #preferences_table.keybinds.build[1] ~= build_count then
 		return nil,
 			"The length of `keybinds.build[1]` must be equal to `display_strategy_count`."
 	end
