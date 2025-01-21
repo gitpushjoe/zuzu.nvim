@@ -2,7 +2,7 @@ local platform = require("zuzu.platform")
 local validate = require("zuzu.validate")
 local M = {}
 
----@class (exact) Keybinds
+---@class (exact) Keymaps
 ---@field build string[][]
 ---@field reopen string[]
 ---@field new_profile string
@@ -24,7 +24,7 @@ local M = {}
 ---@field path PathPreferences
 ---@field core_hooks ({[1]: string, [2]: fun(): string})[]
 ---@field zuzu_function_name string
----@field keybinds Keybinds
+---@field keymaps Keymaps
 ---@field prompt_on_simple_edits boolean
 ---@field hook_choices_suffix string
 
@@ -32,7 +32,7 @@ local M = {}
 M.DEFAULT = {
 	build_count = 4,
 	display_strategy_count = 3,
-	keybinds = {
+	keymaps = {
 		build = {
 			{ "zu", "ZU", "zU", "Zu" },
 			{ "zv", "ZV", "zV", "Zv" },
@@ -178,13 +178,13 @@ function M.new(function_name, table)
 	if display_strategy_count == 0 then
 		return nil, "`display_strategy_count` must be at least 1."
 	end
-	if #preferences_table.keybinds.build > display_strategy_count then
+	if #preferences_table.keymaps.build > display_strategy_count then
 		return nil,
-			"The length of `keybinds.build` cannot be greater than `display_strategy_count`."
+			"The length of `keymaps.build` cannot be greater than `display_strategy_count`."
 	end
-	if #preferences_table.keybinds.build[1] ~= build_count then
+	if #preferences_table.keymaps.build[1] ~= build_count then
 		return nil,
-			"The length of `keybinds.build[1]` must be equal to `display_strategy_count`."
+			"The length of `keymaps.build[1]` must be equal to `display_strategy_count`."
 	end
 	if #preferences_table.display_strategies ~= display_strategy_count then
 		return nil,
@@ -248,23 +248,23 @@ function M.initialize(preferences)
 end
 
 ---@param preferences Preferences
-function M.bind_keybinds(preferences)
-	local set_keybind = function(keybind, action, description)
-		if keybind == "" then
+function M.bind_keymaps(preferences)
+	local set_keymap = function(keymap, action, description)
+		if keymap == "" then
 			return
 		end
 		vim.api.nvim_set_keymap(
 			"n",
-			keybind,
+			keymap,
 			"<cmd>lua require('zuzu')." .. action .. "<CR>",
 			{ noremap = true, silent = true, desc = description }
 		)
 	end
-	local keybinds = preferences.keybinds
-	for display_strategy_idx, builds in ipairs(keybinds.build) do
-		for build_idx, keybind in ipairs(builds) do
-			set_keybind(
-				keybind,
+	local keymaps = preferences.keymaps
+	for display_strategy_idx, builds in ipairs(keymaps.build) do
+		for build_idx, keymap in ipairs(builds) do
+			set_keymap(
+				keymap,
 				("run(%s, %s)"):format(build_idx, display_strategy_idx),
 				("zuzu: Run build #%s with style #%s"):format(
 					build_idx,
@@ -273,38 +273,38 @@ function M.bind_keybinds(preferences)
 			)
 		end
 	end
-	for display_strategy_idx, keybind in ipairs(keybinds.reopen) do
-		set_keybind(
-			keybind,
+	for display_strategy_idx, keymap in ipairs(keymaps.reopen) do
+		set_keymap(
+			keymap,
 			("reopen(%s)"):format(display_strategy_idx),
 			("zuzu: Show last ouput with style #%s"):format(
 				display_strategy_idx
 			)
 		)
 	end
-	set_keybind(
-		keybinds.new_profile,
+	set_keymap(
+		keymaps.new_profile,
 		"new_profile()",
 		"zuzu: Create new build profile"
 	)
-	set_keybind(
-		keybinds.new_project_profile,
+	set_keymap(
+		keymaps.new_project_profile,
 		"new_project_profile()",
 		"zuzu: Create new profile for project"
 	)
-	set_keybind(keybinds.edit_profile, "edit_profile()", "zuzu: Edit profile")
-	set_keybind(
-		keybinds.edit_all_applicable_profiles,
+	set_keymap(keymaps.edit_profile, "edit_profile()", "zuzu: Edit profile")
+	set_keymap(
+		keymaps.edit_all_applicable_profiles,
 		"edit_all_applicable_profiles()",
 		"zuzu: Edit all applicable profiles"
 	)
-	set_keybind(
-		keybinds.edit_all_profiles,
+	set_keymap(
+		keymaps.edit_all_profiles,
 		"edit_all_profiles()",
 		"zuzu: Edit all profiles"
 	)
-	set_keybind(
-		keybinds.edit_hooks,
+	set_keymap(
+		keymaps.edit_hooks,
 		"edit_hooks()",
 		"zuzu: Edit hooks"
 	)

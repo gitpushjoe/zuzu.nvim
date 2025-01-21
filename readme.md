@@ -70,7 +70,7 @@ Default configuration:
 require("zuzu").setup({
 	build_count = 4,
 	display_strategy_count = 3,
-	keybinds = {
+	keymaps = {
 		build = {
 			{ "zu", "ZU", "zU", "Zu" },
 			{ "zv", "ZV", "zV", "Zv" },
@@ -115,14 +115,14 @@ require("zuzu").setup({
 |-|-|
 |`profile_count`|The number of different builds for each [profile](#-profiles).
 |`display_strategy_count`|The number of [display strategies](#-display-strategies). The 3 strategies by default are "command-mode" `:!source run.sh`, split-right-terminal, and split-below-terminal.
-|`keybinds.build`|A 2D list of keybinds. The first row is mapped to the first display strategy, the second row to the second, and so on. The first keybind in each row is mapped to build #1, the second to build #2, and so on. So, for example, pressing `"zV"` will run the 3rd build in the current profile, with the 2nd build display style (split-right-terminal). Use `""` to not bind any keybind.
-|`keybinds.reopen`|Every time zuzu is run, its output is saved to the `path.root` directory at `path.last_output_filename`. Pressing `keybind.reopen[i]` will show the output from the last time zuzu was run, using display strategy #`i`.
-|`keybinds.new_profile`|Creates a new profile. Sets the root to the current file and sets the depth to 0.
-|`keybinds.new_project_profile`|Creates a new profile. Sets the root to the *directory* of the current file and sets the depth to -1 (any depth).
-|`keybinds.edit_profile`|Shows the profile for the current file (the most applicable profile).
-|`keybinds.edit_all_applicable_profiles`|Shows all applicable profiles for the current file. Note that these profiles are *not* shown in any order.
-|`keybinds.edit_all_profiles`|Shows all profiles.
-|`keybinds.edit_hooks`|Opens an interactive menu for updating a [hook](#-hooks).
+|`keymaps.build`|A 2D list of keymaps. The first row is mapped to the first display strategy, the second row to the second, and so on. The first keymap in each row is mapped to build #1, the second to build #2, and so on. So, for example, pressing `"zV"` will run the 3rd build in the current profile, with the 2nd build display style (split-right-terminal). Use `""` to not bind any keymap.
+|`keymaps.reopen`|Every time zuzu is run, its output is saved to the `path.root` directory at `path.last_output_filename`. Pressing `keymap.reopen[i]` will show the output from the last time zuzu was run, using display strategy #`i`.
+|`keymaps.new_profile`|Creates a new profile. Sets the root to the current file and sets the depth to 0.
+|`keymaps.new_project_profile`|Creates a new profile. Sets the root to the *directory* of the current file and sets the depth to -1 (any depth).
+|`keymaps.edit_profile`|Shows the profile for the current file (the most applicable profile).
+|`keymaps.edit_all_applicable_profiles`|Shows all applicable profiles for the current file. Note that these profiles are *not* shown in any order.
+|`keymaps.edit_all_profiles`|Shows all profiles.
+|`keymaps.edit_hooks`|Opens an interactive menu for updating a [hook](#-hooks).
 |`display_strategies`|List of [display strategies](#-display-strategies). 
 |`path.root`|The root directory zuzu will use to save any files its creates.
 |`path.atlas_filename`|The filename for the atlas saved to `path.root`.
@@ -271,7 +271,7 @@ echo "Compiled!"
 > [!Note]
 > `$dir` is explained [here](#core-hooks). 
 
-Finally, zuzu, by default, allows four builds for each profile. These builds are labelled by the keybind used to trigger them. For example, if you create a profile such as this one:
+Finally, zuzu, by default, allows four builds for each profile. These builds are labelled by the keymap used to trigger them. For example, if you create a profile such as this one:
 
 ```sh
 ### {{ root: /home/user/project }}

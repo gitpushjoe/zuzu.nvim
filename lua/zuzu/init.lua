@@ -106,7 +106,7 @@ M.setup = function(table)
 			end,
 		},
 	}
-	Preferences.bind_keybinds(preferences)
+	Preferences.bind_keymaps(preferences)
 end
 
 return M

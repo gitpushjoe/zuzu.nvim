@@ -87,7 +87,7 @@ function M.profile_text(editor, id, profile)
 		end)(),
 		Profile.setup(profile)
 	)
-	for i, keybind in ipairs(editor.preferences.keybinds.build[1]) do
+	for i, keymap in ipairs(editor.preferences.keymaps.build[1]) do
 		local build_text = Profile.build(profile, i)
 		local name, rest = build_text:match("|(.+)|(.*)")
 		if name then
@@ -99,7 +99,7 @@ function M.profile_text(editor, id, profile)
 		text = text .. ([[
 
 ### {{ %s }}
-%s]]):format(keybind, build_text)
+%s]]):format(keymap, build_text)
 	end
 	return text
 end
@@ -157,7 +157,7 @@ function M.editor_open(editor, profiles, link_profiles)
 	local lines = vim.split(text, platform.NEWLINE)
 	local cursor_pos = (function()
 		local header = ("### {{ %s }}"):format(
-			editor.preferences.keybinds.build[1][1]
+			editor.preferences.keymaps.build[1][1]
 		)
 		for i = #lines, 1, -1 do
 			if lines[i] == header then
@@ -351,7 +351,7 @@ function M.parse_editor_lines(editor, lines)
 			line,
 			string.format(
 				"^### {{ %s }}$",
-				editor.preferences.keybinds.build[1][1]
+				editor.preferences.keymaps.build[1][1]
 			),
 			true
 		)
@@ -359,12 +359,12 @@ function M.parse_editor_lines(editor, lines)
 		line = next_line + 1
 
 		local builds = {}
-		for i = 2, #editor.preferences.keybinds.build[1] do
+		for i = 2, #editor.preferences.keymaps.build[1] do
 			next_line = expect_header(
 				line,
 				string.format(
 					"^### {{ %s }}$",
-					editor.preferences.keybinds.build[1][i]
+					editor.preferences.keymaps.build[1][i]
 				),
 				true
 			)
