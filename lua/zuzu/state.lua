@@ -36,7 +36,7 @@ function M.state_write_hooks(state)
 		local hook_val = hook_pair[2]
 		text = text
 			.. platform
-				.choose("export %s='%s'\n", "$env:%s = '%s'\n")
+				.choose("export %s='%s'\n", "$%s = '%s'\n")
 				:format(hook_name, hook_val:gsub("'", "'\\''"))
 	end
 

@@ -28,6 +28,12 @@ local M = {}
 ---@field prompt_on_simple_edits boolean
 ---@field hook_choices_suffix string
 
+---@param hook_name string
+---@return string
+local env_var_syntax = function(hook_name)
+	return platform.choose("", "env:") .. hook_name
+end
+
 ---@type Preferences
 M.DEFAULT = {
 	build_count = 4,
@@ -61,11 +67,11 @@ M.DEFAULT = {
 		last_output_filename = "last.txt",
 	},
 	core_hooks = {
-		{ "file", require("zuzu.hooks").file },
-		{ "dir", require("zuzu.hooks").directory },
-		{ "parent", require("zuzu.hooks").parent_directory },
-		{ "base", require("zuzu.hooks").base },
-		{ "filename", require("zuzu.hooks").filename },
+		{ env_var_syntax("file"), require("zuzu.hooks").file },
+		{ env_var_syntax("dir"), require("zuzu.hooks").directory },
+		{ env_var_syntax("parent"), require("zuzu.hooks").parent_directory },
+		{ env_var_syntax("base"), require("zuzu.hooks").base },
+		{ env_var_syntax("filename"), require("zuzu.hooks").filename },
 	},
 	zuzu_function_name = "zuzu_cmd",
 	prompt_on_simple_edits = false,
@@ -303,11 +309,7 @@ function M.bind_keymaps(preferences)
 		"edit_all_profiles()",
 		"zuzu: Edit all profiles"
 	)
-	set_keymap(
-		keymaps.edit_hooks,
-		"edit_hooks()",
-		"zuzu: Edit hooks"
-	)
+	set_keymap(keymaps.edit_hooks, "edit_hooks()", "zuzu: Edit hooks")
 end
 
 return M

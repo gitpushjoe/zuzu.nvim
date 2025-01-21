@@ -99,6 +99,7 @@ require("zuzu").setup({
 		last_output_filename = "last.txt",
 	},
 	core_hooks = {
+		-- Note: These are actually "env:file", "env:dir", etc. on Windows.
 		{ "file", require("zuzu.hooks").file },
 		{ "dir", require("zuzu.hooks").directory },
 		{ "parent", require("zuzu.hooks").parent_directory },

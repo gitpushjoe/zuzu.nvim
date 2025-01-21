@@ -83,7 +83,7 @@ function M.profile_text(editor, id, profile)
 						hook_val
 					)
 			end
-			return hook_text .. (hook_text ~= "" and platform.NEWLINE or "")
+			return hook_text .. (hook_text ~= "" and "\n" or "")
 		end)(),
 		Profile.setup(profile)
 	)
@@ -91,10 +91,7 @@ function M.profile_text(editor, id, profile)
 		local build_text = Profile.build(profile, i)
 		local name, rest = build_text:match("|(.+)|(.*)")
 		if name then
-			build_text = ("### {{ name: %s }}%s"):format(
-				name,
-				platform.NEWLINE .. rest
-			)
+			build_text = ("### {{ name: %s }}%s"):format(name, "\n" .. rest)
 		end
 		text = text .. ([[
 
@@ -113,7 +110,7 @@ function M.editor_open_new_profile(editor, root)
 		extension,
 		"0",
 		{},
-		platform.NEWLINE,
+		"\n",
 		{},
 		editor.preferences.hook_choices_suffix
 	)
@@ -148,13 +145,13 @@ function M.editor_open(editor, profiles, link_profiles)
 		local res = ""
 		for id, profile in pairs(profiles) do
 			res = res
-				.. (res ~= "" and platform.NEWLINE or "")
+				.. (res ~= "" and "\n" or "")
 				.. M.profile_text(editor, id, profile)
 		end
 		return res
 	end)()
 
-	local lines = vim.split(text, platform.NEWLINE)
+	local lines = vim.split(text, "\n")
 	local cursor_pos = (function()
 		local header = ("### {{ %s }}"):format(
 			editor.preferences.keymaps.build[1][1]
@@ -376,8 +373,15 @@ function M.parse_editor_lines(editor, lines)
 		next_line = next_line or #lines + 1
 		table.insert(builds, concat_lines(line, next_line - 1))
 		line = next_line
-		local profile, root_name =
-			Profile.new(root, filetypes, depth, hooks, setup, builds, editor.preferences.hook_choices_suffix)
+		local profile, root_name = Profile.new(
+			root,
+			filetypes,
+			depth,
+			hooks,
+			setup,
+			builds,
+			editor.preferences.hook_choices_suffix
+		)
 		ProfileMap.map_insert(profiles, root_name, profile)
 	end
 	return profiles
@@ -405,10 +409,10 @@ function M.generate_actions(editor, profile_map)
 					other = existing_profile,
 				}
 				should_prompt_user = should_prompt_user
-				or (
-				editor.preferences.prompt_on_simple_edits
-				and not profile_is_linked
-				)
+					or (
+						editor.preferences.prompt_on_simple_edits
+						and not profile_is_linked
+					)
 				table.insert(actions, action)
 			end
 		else
@@ -454,7 +458,7 @@ function M.generate_prompt_from_actions(actions)
 		{ "o  e" },
 		{ "[X]", "ZuzuDelete" },
 		{ "it" },
-		}, 1, 7, #prompt + 1, prompt)
+	}, 1, 7, #prompt + 1, prompt)
 	return prompt
 end
 
