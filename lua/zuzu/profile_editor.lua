@@ -113,7 +113,7 @@ function M.editor_open_new_profile(editor, root)
 		extension,
 		"0",
 		{},
-		"\n",
+		platform.NEWLINE,
 		{},
 		editor.preferences.hook_choices_suffix
 	)

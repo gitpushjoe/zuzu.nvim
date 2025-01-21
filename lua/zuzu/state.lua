@@ -137,7 +137,7 @@ function M.state_build(state, path, build_idx)
 		M.state_write_setup(state)
 		M.state_write_build(state, build_name, build_text, build_idx)
 	end
-	return "source "
+	return platform.choose("source ", ". ")
 		.. Preferences.get_build_path(state.preferences, build_name)
 end
 
