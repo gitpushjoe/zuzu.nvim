@@ -38,7 +38,8 @@ function M.new(
 			("Do not use relative paths in root."):format(root)
 		)
 		utils.assert(
-			root:sub(1, 1) ~= "." and handle ~= nil,
+			(root:sub(1, 1) ~= "." and handle ~= nil)
+				or vim.fn.isdirectory(root) == 1,
 			("Root does not exist: %s."):format(root)
 		)
 		handle:close()
