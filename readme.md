@@ -1,20 +1,55 @@
-# zuzu.nvim
+<div align="center">
+   <br/>
+    <img src="https://i.postimg.cc/FRd8XcNH/zuzu.png" height="77" width="392" alt="Logo">
+   <br/>
+   <br/>
+   <p>
+      <em>
+      Fast, powerful, cross-platform build system for Neovim.
+      </em>
+   </p>
+</div>
+<br/>
 
-Fast, customizable, powerful build system for Neovim.
+## 🎁 Features
+  * 🎨 [customizable build profiles](#-profiles)
+	* write multiple different build scripts in one profile
+	* project-wide, file-specific, or even global profiles
+	* restrict profiles to specific filetypes/depth
+	* create generalized setup code to apply to all builds
+  * 🧠 [smart profile resolution](#-profile-resolution)
+	* if multiple profiles apply to one file, zuzu will intelligently choose the best one
+	* allows you to create profiles that will work on Python/Javascript/etc. files without setup
+  * 💲 [hooks! (dynamic environment variables)](#-hooks)
+	* built-in core hooks for things like `$file`, `$dir`, `$parent`, etc.
+	* create your own core hooks that will be always be initialized in every build
+	* interactive interface for editing hooks
+	* create [hook choices](#-hook-choices) to easily choose from a list of pre-defined options
+  * 🖥 [versatile display options](#-display-strategies)
+	* create your own display strategy (command mode, split terminal right, split terminal below, etc.)
+	* bind keymaps to different display strategies
+  * ⚡ [blazingly fast (<1ms of overhead)](#-benchmarks)
+	* build scripts are also cached to avoid writing files several times on repeated runs
+  * 🌐 cross-platform!
+	* supports Windows, Linux, MacOS, and other UNIX-likes
+ 
 
 ## Table of Contents
 
 * [Installation](#--installation)
     * [Requirements](#-requirements)
-	* [Configuration](#--configuration)
+    * [Configuration](#--configuration)
 * [Profiles](#-profiles)
-	* [Creating a New Profile](#--creating-a-new-profile)
-	* [Editing Profiles](#--editing-profiles)
-	* [Deleting Profiles](#-deleting-profiles)
-* [Profile Resolution](#-profile-resolution)
+    * [Creating a New Profile](#--creating-a-new-profile)
+    * [Editing Profiles](#--editing-profiles)
+    * [Deleting Profiles](#-deleting-profiles)
+    * [Profile Resolution](#-profile-resolution)
 * [Hooks](#-hooks)
 * [Naming Builds](#-naming-builds)
 * [Display Strategies](#-display-strategies)
+* [API](#-api)
+* [Benchmarks](#-benchmarks)
+* [Highlight Groups](#-highlight-groups)
 
 ## ⚒  Installation
 
@@ -94,7 +129,7 @@ require("zuzu").setup({
 		require("zuzu.display_strategies").split_below,
 	},
 	path = {
-		root = require("zuzu.platfom").join_path(vim.fn.stdpath("data"), "zuzu"),
+		root = require("zuzu.platform").join_path(vim.fn.stdpath("data"), "zuzu"),
 		atlas_filename = "atlas.json",
 		last_output_filename = "last.txt",
 	},
@@ -132,6 +167,8 @@ require("zuzu").setup({
 |`zuzu_function_name`|To run a build, zuzu generates a shell file (`.sh` on UNIX-based, `.ps1` on windows) and puts the build script in a function. This is the name of the function.
 |`prompt_on_simple_edits`|Determines whether or not to show a confirmation prompt on simple edits (no overwrites or deletes).
 |`hook_choices_suffix`|See [Hooks](#-hooks).
+
+<br />
 
 ## ⌨ Profiles
 
@@ -318,7 +355,7 @@ To delete a profile, simply open the profile using one of the methods above. Del
 
 <br/>
 
-## 🔍 Profile Resolution
+### 🔍 Profile Resolution
 
 As you may have noticed, it's very possible for one file to have multiple profiles that apply to it. In this case, zuzu will choose the most applicable profile to use based on the following criteria, in order of importance:
 
@@ -332,7 +369,9 @@ As you may have noticed, it's very possible for one file to have multiple profil
 
 Hooks are environment variables.
 
-If you define environment variables in the `{{ hooks }}` section, you can easily modify them *without* opening up the entire profile, by using `zh`. It will open up a window for you to select the hook you want to change, and then prompt you for the new value. Hooks will be accessible in both `{{ setup }}` and the build commands. Here is an example of how you can use them:
+If you define environment variables in the `{{ hooks }}` section, you can easily modify them *without* opening up the entire profile, by using `zh`. It will open up a window for you to select the hook you want to change, and then prompt you for the new value (see below). Hooks will be accessible in both `{{ setup }}` and the build commands.
+
+![Example](https://i.imgur.com/83V30sr.png)
 
 #### UNIX version
 
@@ -398,8 +437,6 @@ Write-Output "Applying filter $filter to $image with level $level"
 
 ```
 
-[[TODO: add image]]
-
 <br/>
 
 ### Core Hooks
@@ -418,7 +455,9 @@ Some hooks are available by default, and are automatically set every time a buil
 
 ### Hook Choices
 
-If you declare a hook, but you know in advance that there are only a handful of values it will reasonably have, you can declare another hook that stores the choices for it in an array. This choices hook should have the same name as the original hook but end in `"__c"` (this can be changed). (Note: if on Windows, use the [Powershell array syntax](https://ss64.com/ps/syntax-arrays.html).) Then, when you go to edit the hook, it will display those options in a window for you to easily select. Here is an example:
+If you declare a hook, but you know in advance that there are only a handful of values it will reasonably have, you can declare another hook that stores the choices for it in an array. This choices hook should have the same name as the original hook but end in `"__c"` (this can be changed). (Note: if on Windows, use the [Powershell array syntax](https://ss64.com/ps/syntax-arrays.html).) Then, when you go to edit the hook, it will display those options in a window for you to easily select.
+
+![Example](https://i.imgur.com/iDJ5BlS.png)
 
 ```sh
 ### {{ root: /home/user/project }}
@@ -457,8 +496,6 @@ echo "Applying filter $filter to $image with level $level"
 
 ```
 
-[[TODO: add image]]
-
 <br/>
 
 ## 🖋 Naming Builds
@@ -475,8 +512,6 @@ This will give the build a custom filename in the builds folder. Doing this has 
 
  - You can clearly see the name of the build being run, as opposed to something like `/home/.../zuzu/1.sh`, and it might improve readability in the profile editor.
  - zuzu implements caching based on filenames. If you frequently switch between the first build of two different profiles, then zuzu would have to write the build commands to that `1.sh` file each time. However, if you give the two builds different names, then zuzu will only have to load each build in once.
-
-[[TODO: add image]]
 
 <br/>
 
@@ -505,3 +540,130 @@ return M
 ```
 
 To use your own custom display strategies, simply pass them to the `display_strategies` list in the `setup()` function.
+
+## 🔧 API
+
+```lua
+-- Runs build #`build_idx` on the current file.
+---@param build_idx integer
+---@param display_strategy_idx integer
+require("zuzu").run(build_idx, display_strategy_idx)
+
+-- Displays the output from the last time zuzu was run.
+---@param build_idx integer
+---@param display_strategy_idx integer
+require("zuzu").reopen(display_strategy_idx)
+
+-- Opens the profile editor, using the current file as a template for creating
+-- a new profile.
+require("zuzu").new_profile()
+
+-- Opens the profile editor, using the directory the current file is in as a 
+-- template for creating a new profile.
+require("zuzu").new_project_profile()
+
+-- Opens the profile editor on the most applicable profile for the current 
+-- file.
+require("zuzu").edit_profile()
+
+-- Opens the profile editor on all profiles that apply to the current file.
+require("zuzu").edit_all_applicable_profile()
+
+-- Opens the profile editor on all profiles.
+require("zuzu").edit_all_profiles()
+
+-- Opens a prompt to enter a new name for a hook, or opens a window if the hook
+-- has choices. If you want to directly set a hook with choices, skipping the
+-- window, add "zuzu-direct-set: " to the beginning of `hook_name`.
+---@param hook_name string
+require("zuzu").edit_hook(hook_name)
+
+-- Opens a window to edit all hooks for the current file.
+require("zuzu").edit_hooks()
+
+-- Assigns `hook_val` to the hook with the name `hook_name`.
+-- @param hook_name string
+-- @param hook_val string
+require("zuzu").set_hook(hook_name, hook_val)
+
+-- Prints the current zuzu verison.
+require("zuzu").version()
+```
+
+## ⏰ Benchmarks
+
+Compared to just using the typical command-mode in Neovim `(:!)`, zuzu.nvim takes 0.1-0.5ms **longer** to run build commands. This includes the time taken for the initial write; note that if the same build is repeatedly run in the same file, zuzu.nvim will elide the redundant writes. After modifying the plugin to write on each build run, the overhead increases to about 0.4-0.6ms.
+
+```lua
+local zuzu_diffs = {}
+local vim_cmd_diffs = {}
+local last_output_path = require("zuzu.platform").join_path(
+	vim.fn.stdpath("data"),
+	"zuzu",
+	"last.txt"
+)
+local count = 10
+
+function ZuzuTest(use_zuzu)
+    local diffs = use_zuzu and zuzu_diffs or vim_cmd_diffs
+	for i = 1, count do
+		if i ~= 1 then
+			assert(io.popen("sleep 1")):close()
+		end
+		local handle = assert(io.popen("date +%s%6N"))
+		local start_text = handle:read("*a")
+		if use_zuzu then
+		    require("zuzu").run(1, 1)
+		else
+		    vim.cmd("!date +\\%s\\%6N >" .. last_output_path)
+		end
+		local handle2 = assert(io.open(last_output_path, "r"))
+		local end_text = handle2:read("*a")
+		start_text = string.sub(start_text, 5)
+		end_text = string.sub(end_text, 5)
+		table.insert(diffs, tonumber(end_text) - tonumber(start_text))
+		local sum = 0
+		for _, diff in ipairs(diffs) do
+			io.write(diff .. " ")
+			sum = sum + diff
+		end
+		print("avg = " .. sum / #diffs .. "us")
+		handle2:close()
+		handle:close()
+	end
+end
+
+vim.api.nvim_set_keymap(
+	"n",
+	"<leader>zt",
+	":lua ZuzuTest(true)<CR>",
+	{ noremap = true, silent = true }
+)
+vim.api.nvim_set_keymap(
+	"n",
+	"<leader>zT",
+	":lua ZuzuTest(false)<CR>",
+	{ noremap = true, silent = true }
+)
+```
+
+```sh
+### {{ root: * }}
+### {{ filetypes: * }}
+### {{ depth: -1 }}
+### {{ hooks }}
+### {{ setup }}
+
+### {{ zu }}
+date +%s%6N
+```
+
+## 🖍 Highlight Groups
+
+```
+ZuzuCreate
+ZuzuReplace
+ZuzuOverwrite
+ZuzuDelete
+ZuzuHighlight
+```

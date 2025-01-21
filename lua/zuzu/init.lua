@@ -74,6 +74,10 @@ M.set_hook = function(hook_name, hook_val)
 	State.state_set_hook(state, validate_path(), hook_name, hook_val)
 end
 
+M.version = function()
+	print(require("zuzu.version"))
+end
+
 M.setup = function(table)
 	if setup_called then
 		vim.notify(

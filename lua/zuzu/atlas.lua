@@ -98,10 +98,16 @@ function M.insert(atlas, root, profile)
 	table.insert(atlas[root], profile)
 	--- TODO(gitpushjoe): optimize this for always-sorted inserts
 	table.sort(atlas, function(profile1, profile2)
-		if #Profile.filetypes(profile1) < #Profile.filetypes(profile2) then
+		local profile1_filetypes = #Profile.filetypes(profile1)
+		profile1_filetypes = profile1_filetypes == 0 and math.huge
+			or profile1_filetypes
+		local profile2_filetypes = #Profile.filetypes(profile2)
+		profile2_filetypes = profile2_filetypes == 0 and math.huge
+			or profile2_filetypes
+		if profile1_filetypes < profile2_filetypes then
 			return true
 		end
-		if #Profile.filetypes(profile1) > #Profile.filetypes(profile2) then
+		if profile1_filetypes > profile2_filetypes then
 			return false
 		end
 		return Profile.depth(profile1) < Profile.depth(profile2)

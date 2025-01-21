@@ -154,7 +154,7 @@ function M.editor_open(editor, profiles, link_profiles)
 		return res
 	end)()
 
-	local lines = vim.split(text:gsub("\r",""), "\n")
+	local lines = vim.split(text:gsub("\r", ""), "\n")
 	local cursor_pos = (function()
 		local header = ("### {{ %s }}"):format(
 			editor.preferences.keymaps.build[1][1]
@@ -256,7 +256,10 @@ function M.apply_actions(editor, actions)
 			)
 		)
 	end
-	vim.notify(table.concat(action_strings, platform.NEWLINE), vim.log.levels.INFO)
+	vim.notify(
+		table.concat(action_strings, platform.NEWLINE),
+		vim.log.levels.INFO
+	)
 end
 
 ---@param editor ProfileEditor
