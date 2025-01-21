@@ -39,9 +39,9 @@ function M.resolve_profile_generator(atlas, path)
 			if not directory then
 				return
 			end
+			current_depth = current_depth + 1
 			directory, _ =
 				directory:match("(.*)" .. platform.PATH_SEP .. "(.*)")
-			current_depth = current_depth + 1
 			if atlas[directory] then
 				profile = find_first_accepting_profile(directory, current_depth)
 				if profile then
