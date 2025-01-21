@@ -154,7 +154,7 @@ function M.editor_open(editor, profiles, link_profiles)
 		return res
 	end)()
 
-	local lines = vim.split(text:gsub("\r",""), platform.NEWLINE)
+	local lines = vim.split(text:gsub("\r",""), "\n")
 	local cursor_pos = (function()
 		local header = ("### {{ %s }}"):format(
 			editor.preferences.keymaps.build[1][1]
