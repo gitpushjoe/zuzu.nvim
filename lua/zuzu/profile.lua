@@ -32,17 +32,18 @@ function M.new(
 		"Unexpected empty root. Use {{ root: * }} to target all files."
 	)
 	if root ~= "*" then
-		local handle = utils.assert(io.open(root, "r"))
+		local handle = io.open(root, "r")
 		utils.assert(
 			root:sub(1, 1) ~= ".",
 			("Do not use relative paths in root."):format(root)
 		)
 		utils.assert(
-			(root:sub(1, 1) ~= "." and handle ~= nil)
-				or vim.fn.isdirectory(root) == 1,
+			(root:sub(1, 1) ~= "." and handle ~= nil),
 			("Root does not exist: %s."):format(root)
 		)
-		handle:close()
+		if handle then
+			handle:close()
+		end
 	else
 		root = ""
 	end
