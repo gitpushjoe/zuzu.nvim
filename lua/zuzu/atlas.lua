@@ -48,8 +48,8 @@ function M.resolve_profile_generator(atlas, path)
 					coroutine.yield(profile, directory)
 				end
 			end
-			if #directory == 0 then
-				break
+			if not directory or #directory == 0 then
+				return
 			end
 		end
 	end)
