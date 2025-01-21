@@ -115,9 +115,7 @@ function M.new(
 		)
 		local name, rest = string.match(
 			build,
-			"^### {{ name: ([%w_-%.]+) }}"
-				.. platform.NEWLINE
-				.. "(.*)$"
+			"^### {{ name: ([%w_-%.]+) }}" .. platform.NEWLINE .. "(.*)$"
 		)
 		if name then
 			build = string.format("|%s|%s", name, rest)
@@ -169,7 +167,7 @@ end
 ---@param build_idx integer
 ---@return string
 function M.build(profile, build_idx)
-	return M.builds(profile)[build_idx] or "\n"
+	return M.builds(profile)[build_idx] or platform.NEWLINE
 end
 
 ---@param profile1 Profile

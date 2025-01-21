@@ -78,12 +78,12 @@ function M.profile_text(editor, id, profile)
 					hook_val
 				) or hook_val
 				hook_text = hook_text
-					.. (platform.choose("\nexport %s=%s", "\n$%s=%s")):format(
+					.. (platform.choose("\nexport %s=%s", "\r\n$%s=%s")):format(
 						hook_name,
 						hook_val
 					)
 			end
-			return hook_text .. (hook_text ~= "" and "\n" or "")
+			return hook_text .. (hook_text ~= "" and platform.NEWLINE or "")
 		end)(),
 		Profile.setup(profile)
 	)
@@ -91,7 +91,10 @@ function M.profile_text(editor, id, profile)
 		local build_text = Profile.build(profile, i)
 		local name, rest = build_text:match("|(.+)|(.*)")
 		if name then
-			build_text = ("### {{ name: %s }}%s"):format(name, "\n" .. rest)
+			build_text = ("### {{ name: %s }}%s"):format(
+				name,
+				platform.NEWLINE .. rest
+			)
 		end
 		text = text .. ([[
 
@@ -110,7 +113,7 @@ function M.editor_open_new_profile(editor, root)
 		extension,
 		"0",
 		{},
-		"\n",
+		platform.NEWLINE,
 		{},
 		editor.preferences.hook_choices_suffix
 	)
@@ -128,7 +131,7 @@ function M.editor_open_new_profile_at_directory(editor, root)
 		extension,
 		"-1",
 		{},
-		"\n",
+		platform.NEWLINE,
 		{},
 		editor.preferences.hook_choices_suffix
 	)
@@ -145,13 +148,13 @@ function M.editor_open(editor, profiles, link_profiles)
 		local res = ""
 		for id, profile in pairs(profiles) do
 			res = res
-				.. (res ~= "" and "\n" or "")
+				.. (res ~= "" and platform.NEWLINE or "")
 				.. M.profile_text(editor, id, profile)
 		end
 		return res
 	end)()
 
-	local lines = vim.split(text, "\n")
+	local lines = vim.split(text, platform.NEWLINE)
 	local cursor_pos = (function()
 		local header = ("### {{ %s }}"):format(
 			editor.preferences.keymaps.build[1][1]
@@ -171,7 +174,7 @@ function M.editor_open(editor, profiles, link_profiles)
 	}
 	vim.api.nvim_buf_set_option(buf_id, "filetype", "bash")
 	vim.api.nvim_buf_set_name(buf_id, "zuzu///editor")
-	vim.api.nvim_buf_set_lines(buf_id, 0, -1, false, vim.split(text, "\n"))
+	vim.api.nvim_buf_set_lines(buf_id, 0, -1, false, lines)
 	vim.api.nvim_set_current_buf(buf_id)
 	vim.api.nvim_win_set_cursor(0, { cursor_pos, 0 })
 	vim.api.nvim_create_augroup("CloseBufferOnBufferClose", { clear = true })
@@ -253,7 +256,7 @@ function M.apply_actions(editor, actions)
 			)
 		)
 	end
-	vim.notify(table.concat(action_strings, "\n"), vim.log.levels.INFO)
+	vim.notify(table.concat(action_strings, platform.NEWLINE), vim.log.levels.INFO)
 end
 
 ---@param editor ProfileEditor
@@ -313,12 +316,7 @@ function M.parse_editor_lines(editor, lines)
 	---@param end_line integer
 	---@return string
 	local concat_lines = function(start_line, end_line)
-		return table.concat(
-			lines,
-			platform.choose("\n", "\r\n"),
-			start_line,
-			end_line
-		)
+		return table.concat(lines, platform.NEWLINE, start_line, end_line)
 	end
 
 	local profiles = ProfileMap.new()

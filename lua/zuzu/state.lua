@@ -36,7 +36,7 @@ function M.state_write_hooks(state)
 		local hook_val = hook_pair[2]
 		text = text
 			.. platform
-				.choose("export %s='%s'\n", "$%s = '%s'\n")
+				.choose("export %s='%s'\n", "$%s = '%s'\r\n")
 				:format(hook_name, hook_val:gsub("'", "'\\''"))
 	end
 
@@ -60,10 +60,12 @@ end
 function M.state_write_build(state, build_name, build_text, build_idx)
 	utils.write_to_path(
 		Preferences.get_build_path(state.preferences, build_name),
-		platform.choose("source %s\nsource %s\n", '. "%s"\n. "%s"\n'):format(
-			Preferences.get_hooks_path(state.preferences),
-			Preferences.get_setup_path(state.preferences)
-		)
+		platform
+			.choose("source %s\nsource %s\n", '. "%s"\r\n. "%s"\r\n')
+			:format(
+				Preferences.get_hooks_path(state.preferences),
+				Preferences.get_setup_path(state.preferences)
+			)
 			.. ("function %s {%s%s%s%s%s}%s%s 2>&1 | tee %s"):format(
 				state.preferences.zuzu_function_name,
 				platform.NEWLINE,
