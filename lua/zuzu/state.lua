@@ -283,7 +283,7 @@ foreach ($item in $array) {
 			)
 			:format(hook_choices)
 
-		hook_choices = vim.split(vim.fn.system(cmd), platform.NEWLINE)
+		hook_choices = vim.split(vim.fn.system(cmd):gsub("\r", ""), "\n")
 
 		if hook_choices[#hook_choices] == "" then
 			table.remove(hook_choices)
