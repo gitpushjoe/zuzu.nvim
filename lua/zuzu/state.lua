@@ -220,6 +220,7 @@ function M.state_edit_hooks(state, path)
 
 	if #choices == 1 then
 		M.state_edit_hook(state, path, choices[1])
+		return
 	end
 
 	utils.create_floating_options_window(
