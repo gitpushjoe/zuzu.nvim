@@ -31,6 +31,7 @@ function M.resolve_profile_generator(atlas, path)
 		local current_depth = 0
 		local profile = find_first_accepting_profile(path, current_depth)
 			or find_first_accepting_profile(directory, current_depth)
+		current_depth = 1
 		if profile then
 			coroutine.yield(profile, path)
 		end
