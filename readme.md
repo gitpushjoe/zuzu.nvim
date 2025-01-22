@@ -11,26 +11,30 @@
 </div>
 <br/>
 
+
+https://github.com/user-attachments/assets/c0d6c5e6-1375-44a3-81f5-7481857f1e4e
+
+
 ## 🎁 Features
-  * 🎨 [customizable build profiles](#-profiles)
+  * ### [🎨 customizable build profiles](#-profiles)
 	* write multiple different build scripts in one profile
 	* project-wide, file-specific, or even global profiles
 	* restrict profiles to specific filetypes/depth
 	* create generalized setup code to apply to all builds
-  * 🧠 [smart profile resolution](#-profile-resolution)
+  * ### [🧠 smart profile resolution](#-profile-resolution)
 	* if multiple profiles apply to one file, zuzu will intelligently choose the best one
 	* allows you to create profiles that will work on Python/Javascript/etc. files without setup
-  * 💲 [hooks! (dynamic environment variables)](#-hooks)
+  * ### [💲 hooks! (dynamic environment variables)](#-hooks)
 	* built-in core hooks for things like `$file`, `$dir`, `$parent`, etc.
 	* create your own core hooks that will be always be initialized in every build
 	* interactive interface for editing hooks
 	* create [hook choices](#-hook-choices) to easily choose from a list of pre-defined options
-  * 🖥 [versatile display options](#-display-strategies)
+  * ### [🖥 versatile display options](#-display-strategies)
 	* create your own display strategy (command mode, split terminal right, split terminal below, etc.)
 	* bind keymaps to different display strategies
-  * ⚡ [blazingly fast (<1ms of overhead)](#-benchmarks)
+  * ### [⚡ blazingly fast (<1ms of overhead)](#-benchmarks)
 	* build scripts are also cached to avoid writing files several times on repeated runs
-  * 🌐 cross-platform!
+  * ### 🌐 cross-platform!
 	* supports Windows, Linux, MacOS, and other UNIX-likes
  
 
