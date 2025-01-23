@@ -153,7 +153,7 @@ require("zuzu").setup({
 
 |Key |Explanation |
 |-|-|
-|`profile_count`|The number of different builds for each [profile](#-profiles).
+|`build_count`|The number of different builds for each [profile](#-profiles).
 |`display_strategy_count`|The number of [display strategies](#-display-strategies). The 3 strategies by default are "command-mode" `:!source run.sh`, split-right-terminal, and split-below-terminal.
 |`keymaps.build`|A 2D list of keymaps. The first row is mapped to the first display strategy, the second row to the second, and so on. The first keymap in each row is mapped to build #1, the second to build #2, and so on. So, for example, pressing `"zV"` will run the 3rd build in the current profile, with the 2nd build display style (split-right-terminal). Use `""` to not bind any keymap.
 |`keymaps.reopen`|Every time zuzu is run, its output is saved to the `path.root` directory at `path.last_output_filename`. Pressing `keymap.reopen[i]` will show the output from the last time zuzu was run, using display strategy #`i`.

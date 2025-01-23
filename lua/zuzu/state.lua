@@ -125,7 +125,6 @@ function M.state_build(state, path, build_idx)
 	end
 	state.profile = profile
 	local hooks_is_dirty = M.state_resolve_hooks(state)
-	hooks_is_dirty = true
 	if hooks_is_dirty then
 		M.state_write_hooks(state)
 	end
@@ -136,7 +135,6 @@ function M.state_build(state, path, build_idx)
 		and build[1] == profile
 		and build[2] == build_idx
 	)
-	build_file_is_dirty = true
 	if build_file_is_dirty then
 		M.state_write_setup(state)
 		M.state_write_build(state, build_name, build_text, build_idx)
