@@ -105,6 +105,8 @@ use {
 
 Default configuration:
 
+[[ TODO: update this ]]
+
 ```lua
 require("zuzu").setup({
 	build_count = 4,

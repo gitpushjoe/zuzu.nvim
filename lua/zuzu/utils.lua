@@ -50,6 +50,25 @@ function M.write_to_path(path, content)
 	handle:close()
 end
 
+---@generic T
+---@param tbl T
+---@return T
+M.read_only = function(tbl)
+	local proxy = {}
+	local mt = {
+		__index = tbl,
+		__newindex = function(self)
+			error(
+				(self.__name and (self.__name .. ": ") or "")
+					.. "attempt to update a read-only table",
+				2
+			)
+		end,
+	}
+	setmetatable(proxy, mt)
+	return proxy
+end
+
 ---@param choices string[]
 ---@param buf_name string
 ---@param on_select fun(s: string): string

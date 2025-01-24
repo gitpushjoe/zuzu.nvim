@@ -66,16 +66,25 @@ function M.state_write_build(state, build_name, build_text, build_idx)
 				Preferences.get_hooks_path(state.preferences),
 				Preferences.get_setup_path(state.preferences)
 			)
-			.. ("function %s {%s%s%s%s%s}%s%s 2>&1 | tee %s"):format(
+			.. ("function %s {%s%s%s%s%s}%s"):format(
 				state.preferences.zuzu_function_name,
 				platform.NEWLINE,
 				platform.choose(":", ";"), -- no-op
 				platform.NEWLINE,
 				build_text,
 				platform.NEWLINE,
-				platform.NEWLINE,
-				state.preferences.zuzu_function_name,
-				Preferences.get_last_path(state.preferences)
+				platform.NEWLINE
+			)
+			.. platform.choose(
+				("%s > >(tee %s) 2> >(tee %s >&2)"):format(
+					state.preferences.zuzu_function_name,
+					Preferences.get_last_stdout_path(state.preferences),
+					Preferences.get_last_stderr_path(state.preferences)
+				),
+				("%s 2>&1 | Tee-Object %s"):format(
+					state.preferences.zuzu_function_name,
+					Preferences.get_last_stdout_path(state.preferences)
+				)
 			)
 	)
 	state.build_cache[build_name] = { state.profile, build_idx }

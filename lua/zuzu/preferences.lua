@@ -15,12 +15,13 @@ local M = {}
 ---@class (exact) PathPreferences
 ---@field root string
 ---@field atlas_filename string
----@field last_output_filename string
+---@field last_stdout_filename string
+---@field last_stderr_filename string
 
 ---@class (exact) Preferences
 ---@field build_count integer
 ---@field display_strategy_count integer
----@field display_strategies (fun(string): nil)[]
+---@field display_strategies (fun(cmd: string, profile: Profile, build_idx: integer, last_stdout_path: string, last_stderr_path: string): nil)[]
 ---@field path PathPreferences
 ---@field core_hooks ({[1]: string, [2]: fun(): string})[]
 ---@field zuzu_function_name string
@@ -37,15 +38,16 @@ end
 ---@type Preferences
 M.DEFAULT = {
 	build_count = 4,
-	display_strategy_count = 3,
+	display_strategy_count = 4,
 	keymaps = {
 		build = {
 			{ "zu", "ZU", "zU", "Zu" },
 			{ "zv", "ZV", "zV", "Zv" },
 			{ "zs", "ZS", "zS", "Zs" },
+			{ "zb", "ZB", "zB", "Zb" },
 		},
 		reopen = {
-			"z,",
+			"z.",
 			'z"',
 			"z:",
 		},
@@ -60,11 +62,13 @@ M.DEFAULT = {
 		require("zuzu.display_strategies").command,
 		require("zuzu.display_strategies").split_right,
 		require("zuzu.display_strategies").split_below,
+		require("zuzu.display_strategies").background,
 	},
 	path = {
 		root = platform.join_path(tostring(vim.fn.stdpath("data")), "zuzu"),
 		atlas_filename = "atlas.json",
-		last_output_filename = "last.txt",
+		last_stdout_filename = "stdout.txt",
+		last_stderr_filename = "stderr.txt",
 	},
 	core_hooks = {
 		{ env_var_syntax("file"), require("zuzu.hooks").file },
@@ -240,8 +244,14 @@ end
 
 ---@param preferences Preferences
 ---@return string
-function M.get_last_path(preferences)
-	return M.join_path(preferences, preferences.path.last_output_filename)
+function M.get_last_stdout_path(preferences)
+	return M.join_path(preferences, preferences.path.last_stdout_filename)
+end
+
+---@param preferences Preferences
+---@return string
+function M.get_last_stderr_path(preferences)
+	return M.join_path(preferences, preferences.path.last_stderr_filename)
 end
 
 ---@param preferences Preferences

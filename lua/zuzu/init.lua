@@ -31,12 +31,29 @@ M.run = function(build_idx, display_strategy_idx)
 	)
 	local cmd =
 		utils.assert(State.state_build(state, validate_path(), build_idx))
-	preferences.display_strategies[display_strategy_idx](cmd)
+	preferences.display_strategies[display_strategy_idx](
+		cmd,
+		utils.read_only(assert(state.profile)),
+		build_idx,
+		Preferences.get_last_stdout_path(preferences),
+		Preferences.get_last_stderr_path(preferences)
+	)
 end
 
 M.reopen = function(display_strategy_idx)
 	preferences.display_strategies[display_strategy_idx](
-		"cat " .. Preferences.get_last_path(preferences)
+		"cat "
+			.. Preferences.get_last_stdout_path(preferences)
+			.. " && echo -e '\\033[31m' && "
+			.. "cat "
+			.. Preferences.get_last_stderr_path(preferences)
+			.. " && echo -n -e '\\033[0m'",
+		utils.read_only(
+			utils.assert(Atlas.resolve_profile(state.atlas, validate_path()))
+		),
+		0,
+		Preferences.get_last_stdout_path(preferences),
+		Preferences.get_last_stderr_path(preferences)
 	)
 end
 
@@ -91,6 +108,9 @@ M.setup = function(table)
 	vim.cmd([[highlight ZuzuOverwrite guifg=LightMagenta]])
 	vim.cmd([[highlight ZuzuDelete guifg=#ff3030]])
 	vim.cmd([[highlight ZuzuHighlight guifg=Orange]])
+	vim.cmd([[highlight ZuzuBackgroundRun guifg=#888888]])
+	vim.cmd([[highlight ZuzuSuccess guifg=LightGreen]])
+	vim.cmd([[highlight ZuzuFailure guifg=LightRed]])
 	setup_called = true
 	preferences = utils.assert(
 		Preferences.new('require("zuzu.nvim").setup(...)', table or {})
