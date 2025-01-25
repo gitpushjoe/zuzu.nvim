@@ -375,7 +375,7 @@ end
 ---@param state State
 ---@param path string
 ---@param is_stable boolean
-M.toggle_errors = function(state, path, is_stable)
+M.toggle_qflist = function(state, path, is_stable)
 	for _, diagnostic in ipairs(vim.diagnostic.get(0)) do
 		if diagnostic.source == "zuzu" then
 			vim.diagnostic.reset(state.error_namespace, 0)
@@ -448,9 +448,9 @@ end
 ---@param state State
 ---@param path string
 ---@param is_next boolean
-M.prev_or_next_error = function(state, path, is_next)
+M.qflist_prev_or_next = function(state, path, is_next)
 	if not state.error_window_is_open then
-		M.toggle_errors(state, path, true)
+		M.toggle_qflist(state, path, true)
 	end
 	if
 		not pcall(function()

@@ -92,17 +92,17 @@ M.set_hook = function(hook_name, hook_val)
 end
 
 ---@param is_stable boolean
-M.toggle_errors = function(is_stable)
+M.toggle_qflist = function(is_stable)
 	if vim.fn.expand("%:p") == "" and state.error_window_is_open then
-		State.toggle_errors(state, "")
+		State.toggle_qflist(state, "", is_stable)
 		return
 	end
-	State.toggle_errors(state, validate_path(), is_stable)
+	State.toggle_qflist(state, validate_path(), is_stable)
 end
 
 ---@param is_next boolean
-M.prev_or_next_error = function(is_next)
-	State.prev_or_next_error(state, vim.fn.expand("%:p"), is_next)
+M.qflist_prev_or_next = function(is_next)
+	State.qflist_prev_or_next(state, vim.fn.expand("%:p"), is_next)
 end
 
 M.version = function()

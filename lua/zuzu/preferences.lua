@@ -11,10 +11,10 @@ local M = {}
 ---@field edit_all_applicable_profiles string
 ---@field edit_all_profiles string
 ---@field edit_hooks string
----@field prev_error string
----@field next_error string
----@field toggle_errors string
----@field stable_toggle_errors string
+---@field qflist_prev string
+---@field qflist_next string
+---@field toggle_qflist string
+---@field stable_toggle_qflist string
 
 ---@class (exact) PathPreferences
 ---@field root string
@@ -62,10 +62,10 @@ M.DEFAULT = {
 		edit_all_applicable_profiles = "z?",
 		edit_all_profiles = "z*",
 		edit_hooks = "zh",
-		prev_error = "z[",
-		next_error = "z]",
-		stable_toggle_errors = "z\\",
-		toggle_errors = "z|",
+		qflist_prev = "z[",
+		qflist_next = "z]",
+		stable_toggle_qflist = "z\\",
+		toggle_qflist = "z|",
 	},
 	display_strategies = {
 		require("zuzu.display_strategies").command,
@@ -336,23 +336,23 @@ function M.bind_keymaps(preferences)
 	)
 	set_keymap(keymaps.edit_hooks, "edit_hooks()", "zuzu: Edit hooks")
 	set_keymap(
-		keymaps.stable_toggle_errors,
-		"toggle_errors(true)",
+		keymaps.stable_toggle_qflist,
+		"toggle_qflist(true)",
 		"zuzu: Toggle error window"
 	)
 	set_keymap(
-		keymaps.toggle_errors,
-		"toggle_errors(false)",
+		keymaps.toggle_qflist,
+		"toggle_qflist(false)",
 		"zuzu: Toggle error window"
 	)
 	set_keymap(
-		keymaps.prev_error,
-		"prev_or_next_error(false)",
+		keymaps.qflist_prev,
+		"qflist_prev_or_next(false)",
 		"zuzu: Toggle error window"
 	)
 	set_keymap(
-		keymaps.next_error,
-		"prev_or_next_error(true)",
+		keymaps.qflist_next,
+		"qflist_prev_or_next(true)",
 		"zuzu: Toggle error window"
 	)
 end
