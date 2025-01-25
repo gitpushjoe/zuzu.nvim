@@ -193,19 +193,38 @@ function M.build(profile, build_idx)
 end
 
 ---@param profile Profile
----@return string?
-function M.compiler(profile)
-	return profile[6]
+---@param build_idx integer
+---@return string build_name
+---@return string build_text
+---@return string? build_compiler
+function M.build_info(profile, build_idx)
+	local build = M.build(profile, build_idx)
+	local name = tostring(build_idx)
+	local compiler
+	if build:sub(1, 1) == "|" then
+		name, build = build:match("|(.-)|(.*)")
+	end
+	if build:sub(#build, #build) == "(" then
+		build, compiler = build:match("(.*)%(([^%(]+)%($")
+	end
+	return name, build, compiler
 end
 
 ---@param profile Profile
+---@param build_idx integer?
+---@return string?
+function M.compiler(profile, build_idx)
+	local compiler
+	if build_idx and M.builds(profile)[build_idx] then
+		_, _, compiler = M.build_info(profile, build_idx)
+	end
+	return compiler or profile[6]
+end
+
+---@param target_compiler string
 ---@param compiler_pairs [string, string][]
 ---@return string?
-function M.get_errorformat(profile, compiler_pairs)
-	local target_compiler = M.compiler(profile)
-	if not target_compiler then
-		return
-	end
+function M.get_errorformat(target_compiler, compiler_pairs)
 	for _, compiler_pair in ipairs(compiler_pairs) do
 		local compiler = compiler_pair[1]
 		local errorformat = compiler_pair[2]
@@ -304,24 +323,6 @@ end
 ---@return boolean
 function M.accepts(profile, depth, extension)
 	return depth <= M.depth(profile) and M.accepts_ext(profile, extension)
-end
-
----@param profile Profile
----@param build_idx integer
----@return string build_name
----@return string build_text
----@return string? build_compiler
-function M.build_info(profile, build_idx)
-	local build = M.build(profile, build_idx)
-	local name = tostring(build_idx)
-	local compiler
-	if build:sub(1, 1) == "|" then
-		name, build = build:match("|(.-)|(.*)")
-	end
-	if build:sub(#build, #build) == "(" then
-		build, compiler = build:match("(.*)%(([^%(]+)%($")
-	end
-	return name, build, compiler
 end
 
 return M

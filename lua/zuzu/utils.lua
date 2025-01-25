@@ -43,6 +43,18 @@ M.str_ends_with = function(str, suffix)
 end
 
 ---@param path string
+---@return string?
+function M.read_from_path(path)
+	local handle = io.open(path, "r")
+	if not handle then
+		return nil
+	end
+	local text = handle:read("*a")
+	handle:close()
+	return text
+end
+
+---@param path string
 ---@param content string
 function M.write_to_path(path, content)
 	local handle = M.assert(io.open(path, "w"), "Could not open " .. path)

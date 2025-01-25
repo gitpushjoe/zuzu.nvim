@@ -21,6 +21,7 @@ local M = {}
 ---@field atlas_filename string
 ---@field last_stdout_filename string
 ---@field last_stderr_filename string
+---@field compiler_filename string
 
 ---@class (exact) Preferences
 ---@field build_count integer
@@ -78,6 +79,7 @@ M.DEFAULT = {
 		atlas_filename = "atlas.json",
 		last_stdout_filename = "stdout.txt",
 		last_stderr_filename = "stderr.txt",
+		compiler_filename = "compiler.txt",
 	},
 	core_hooks = {
 		{ env_var_syntax("file"), require("zuzu.hooks").file },
@@ -92,7 +94,7 @@ M.DEFAULT = {
 	compilers = {
 		--- https://vi.stackexchange.com/a/44620
 		{ "python3", '%A %#File "%f"\\, line %l\\, in %o,%Z %#%m' },
-		{ "lua", "%E%\\\\?lua:%f:%l:%m,%E%f:%l:%m" }
+		{ "lua", "%E%\\\\?lua:%f:%l:%m,%E%f:%l:%m" },
 	},
 }
 
@@ -109,8 +111,8 @@ M.table_join = function(function_name, arg_name, src_table, table)
 	end
 	local is_array = src_table[1] ~= nil
 	if is_array then
-		---assume all lists where the first 2 items are different are 2-tuples
-		local is_tuple = type(src_table[1]) ~= type(src_table[2])
+		---assume all lists of 2 items are 2-tuples
+		local is_tuple = #src_table == 2
 		if is_tuple then
 			err = validate.types(function_name, {
 				{ table[1], type(src_table[1]), arg_name .. "[1]" },
@@ -241,6 +243,12 @@ end
 ---@return string
 function M.get_setup_path(preferences)
 	return M.join_path(preferences, "setup" .. platform.EXTENSION)
+end
+
+---@param preferences Preferences
+---@return string
+function M.get_compiler_path(preferences)
+	return M.join_path(preferences, "compiler" .. platform.EXTENSION)
 end
 
 ---@param preferences Preferences

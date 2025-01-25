@@ -23,6 +23,7 @@ local M = {}
 ---@field atlas Atlas
 ---@field hooks HookPair[]
 ---@field profile Profile?
+---@field compiler string?
 ---@field preferences Preferences
 ---@field build_cache table<string, BuildPair>
 ---@field profile_editor ProfileEditor
@@ -52,6 +53,14 @@ function M.state_write_setup(state)
 	utils.write_to_path(
 		Preferences.get_setup_path(state.preferences),
 		Profile.setup(state.profile)
+	)
+end
+
+---@param state State
+function M.state_write_compiler(state)
+	utils.write_to_path(
+		Preferences.get_compiler_path(state.preferences),
+		state.compiler
 	)
 end
 
@@ -150,6 +159,12 @@ function M.state_build(state, path, build_idx)
 	local hooks_is_dirty = M.state_resolve_hooks(state)
 	if hooks_is_dirty then
 		M.state_write_hooks(state)
+	end
+	local compiler = Profile.compiler(profile, build_idx) or ""
+	local compiler_is_dirty = compiler ~= state.compiler
+	state.compiler = compiler
+	if compiler_is_dirty then
+		M.state_write_compiler(state)
 	end
 	local build_name, build_text = Profile.build_info(profile, build_idx)
 	local build = state.build_cache[build_name]
@@ -391,13 +406,16 @@ M.toggle_qflist = function(state, path, is_stable)
 		"No applicable build profile found."
 	)
 
-	local compiler = utils.assert(
-		Profile.compiler(profile),
-		"The current build profile has no compiler."
+	local compiler = utils.read_from_path(
+		Preferences.get_compiler_path(state.preferences) or ""
+	)
+	compiler = utils.assert(
+		compiler ~= "" and compiler or nil,
+		"No compiler registered for last build."
 	)
 
 	local errorformat =
-		Profile.get_errorformat(profile, state.preferences.compilers)
+		Profile.get_errorformat(compiler, state.preferences.compilers)
 
 	if errorformat then
 		vim.opt.errorformat = errorformat
@@ -421,7 +439,7 @@ M.toggle_qflist = function(state, path, is_stable)
 	local diagnostics = {}
 	local diagnostic_idx = 1
 
-	for i, item in ipairs(quickfix_list) do
+	for _, item in ipairs(quickfix_list) do
 		if item.bufnr ~= 0 then
 			table.insert(diagnostics, {
 				lnum = item.lnum - 1,

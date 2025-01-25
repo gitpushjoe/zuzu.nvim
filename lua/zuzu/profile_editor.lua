@@ -290,7 +290,7 @@ function M.parse_editor_lines(editor, lines)
 				local alternate_match_exists = (function()
 					for _, allowed_key in ipairs(allowed) do
 						local alt_pattern = ("### {{ %s: "):format(allowed_key)
-						if lines[line]:sub(1, #alt_pattern) ~= alt_pattern then
+						if lines[line]:sub(1, #alt_pattern) == alt_pattern then
 							return true
 						end
 					end
