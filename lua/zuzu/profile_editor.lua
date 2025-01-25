@@ -3,7 +3,6 @@ local Profile = require("zuzu.profile")
 local platform = require("zuzu.platform")
 local ProfileMap = require("zuzu.profile_map")
 local Atlas = require("zuzu.atlas")
-local Preferences = require("zuzu.preferences")
 local M = {}
 
 ---@class (exact) ProfileEditorState
@@ -14,7 +13,7 @@ local M = {}
 ---@field state ProfileEditorState?
 ---@field preferences Preferences
 ---@field atlas Atlas
----@field cache_clear function
+---@field write_atlas_function function
 
 ---@class (exact) CreateAction
 ---@field type "create"
@@ -58,12 +57,20 @@ function M.profile_text(editor, id, profile)
 	local root, filetypes, depth = ProfileMap.split_id(id)
 	local text = ([[
 ### {{ root: %s }}
-### {{ filetypes: %s }}
+%s### {{ filetypes: %s }}
 ### {{ depth: %s }}
 ### {{ hooks }}%s
 ### {{ setup }}
 %s]]):format(
 		root == "" and "*" or root,
+		(
+			Profile.compiler(profile)
+				and ("### {{ compiler: %s }}%s"):format(
+					Profile.compiler(profile),
+					platform.NEWLINE
+				)
+			or ""
+		),
 		filetypes == "" and "*" or filetypes,
 		depth == "inf" and "-1" or depth,
 		(function()
@@ -115,6 +122,7 @@ function M.editor_open_new_profile(editor, root)
 		{},
 		platform.NEWLINE,
 		{},
+		nil,
 		editor.preferences.hook_choices_suffix
 	)
 	local id = ProfileMap.get_id(root, profile)
@@ -133,6 +141,7 @@ function M.editor_open_new_profile_at_directory(editor, root)
 		{},
 		platform.NEWLINE,
 		{},
+		nil,
 		editor.preferences.hook_choices_suffix
 	)
 	M.editor_open(editor, { [ProfileMap.get_id(directory, profile)] = profile })
@@ -234,12 +243,8 @@ end
 ---@param editor ProfileEditor
 ---@param actions Action[]
 function M.apply_actions(editor, actions)
-	editor.cache_clear()
 	M.editor_apply_actions(editor, actions)
-	Atlas.atlas_write(
-		editor.atlas,
-		Preferences.get_atlas_path(editor.preferences)
-	)
+	editor.write_atlas_function()
 	local action_counts = {}
 	for _, action in ipairs(actions) do
 		action_counts[action.type] = (action_counts[action.type] or 0) + 1
@@ -268,31 +273,27 @@ end
 function M.parse_editor_lines(editor, lines)
 	---@param line integer
 	---@param pattern string
-	---@param allow_name boolean?
+	---@param allowed string?
 	---@return integer? line
 	---@return string? match
 	---@return string? errmsg
-	local seek_header = function(line, pattern, allow_name)
-		allow_name = allow_name or false
+	local seek_header = function(line, pattern, allowed)
 		while lines[line] do
 			local match = string.match(lines[line], pattern)
 			if match then
 				return line, match
 			end
-			if
-				lines[line]:sub(1, #"### {{ ") == "### {{ "
-				and not (
-					allow_name
-					and lines[line]:sub(#"### {{ name: ") ~= "### {{ name: "
-				)
-			then
-				utils.error(
-					string.format(
-						'Unexpected header: "%s"\nWas searching for pattern: "%s"',
-						lines[line],
-						pattern
+			if lines[line]:sub(1, #"### {{ ") == "### {{ " and allowed then
+				local alt_pattern = ("### {{ %s: "):format(allowed)
+				if lines[line]:sub(1, #alt_pattern) ~= alt_pattern then
+					utils.error(
+						string.format(
+							'Unexpected header: "%s"\nWas searching for pattern: "%s"',
+							lines[line],
+							pattern
+						)
 					)
-				)
+				end
 			end
 			line = line + 1
 		end
@@ -303,11 +304,11 @@ function M.parse_editor_lines(editor, lines)
 
 	---@param line integer
 	---@param pattern string
-	---@param allow_name boolean?
+	---@param allowed string?
 	---@return integer line
 	---@return string match
-	local expect_header = function(line, pattern, allow_name)
-		local next_line, match, errmsg = seek_header(line, pattern, allow_name)
+	local expect_header = function(line, pattern, allowed)
+		local next_line, match, errmsg = seek_header(line, pattern, allowed)
 		if not next_line or not match then
 			utils.error(errmsg)
 			error()
@@ -331,9 +332,17 @@ function M.parse_editor_lines(editor, lines)
 		end
 		line = next_line + 1
 
-		local filetypes
-		line, filetypes = expect_header(line, "^### {{ filetypes: (.-) }}$")
-		line = line + 1
+		local filetypes, compiler
+		next_line, filetypes =
+			expect_header(line, "^### {{ filetypes: (.-) }}$", "compiler")
+		if next_line > line then
+			local compiler_line, match =
+				seek_header(line, "^### {{ compiler: (.-) }}$")
+			if compiler_line == line then
+				compiler = match
+			end
+		end
+		line = next_line + 1
 
 		local depth
 		line, depth = expect_header(line, "^### {{ depth: (.-) }}$")
@@ -351,7 +360,7 @@ function M.parse_editor_lines(editor, lines)
 				"^### {{ %s }}$",
 				editor.preferences.keymaps.build[1][1]
 			),
-			true
+			"name"
 		)
 		local setup = concat_lines(line, next_line - 1)
 		line = next_line + 1
@@ -364,13 +373,13 @@ function M.parse_editor_lines(editor, lines)
 					"^### {{ %s }}$",
 					editor.preferences.keymaps.build[1][i]
 				),
-				true
+				"name"
 			)
 			builds[i - 1] = concat_lines(line, next_line - 1)
 			line = next_line + 1
 		end
 
-		next_line, _ = seek_header(line, "^### {{ root: (.-) }}$", true)
+		next_line, _ = seek_header(line, "^### {{ root: (.-) }}$", "name")
 		next_line = next_line or #lines + 1
 		table.insert(builds, concat_lines(line, next_line - 1))
 		line = next_line
@@ -381,6 +390,8 @@ function M.parse_editor_lines(editor, lines)
 			hooks,
 			setup,
 			builds,
+			compiler,
+			nil,
 			editor.preferences.hook_choices_suffix
 		)
 		ProfileMap.map_insert(profiles, root_name, profile)

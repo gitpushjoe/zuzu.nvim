@@ -91,6 +91,20 @@ M.set_hook = function(hook_name, hook_val)
 	State.state_set_hook(state, validate_path(), hook_name, hook_val)
 end
 
+---@param is_stable boolean
+M.toggle_errors = function(is_stable)
+	if vim.fn.expand("%:p") == "" and state.error_window_is_open then
+		State.toggle_errors(state, "")
+		return
+	end
+	State.toggle_errors(state, validate_path(), is_stable)
+end
+
+---@param is_next boolean
+M.prev_or_next_error = function(is_next)
+	State.prev_or_next_error(state, vim.fn.expand("%:p"), is_next)
+end
+
 M.version = function()
 	print(require("zuzu.version"))
 end
@@ -125,11 +139,13 @@ M.setup = function(table)
 		profile_editor = {
 			preferences = preferences,
 			atlas = atlas,
-			cache_clear = function()
-				state.build_cache = {}
-			end,
+			write_atlas_function = function() end,
 		},
+		error_window_is_open = false,
+		error_namespace = vim.api.nvim_create_namespace("zuzu-errors"),
 	}
+	state.profile_editor.write_atlas_function =
+		State.state_write_atlas_function(state)
 	Preferences.bind_keymaps(preferences)
 end
 

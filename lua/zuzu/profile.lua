@@ -8,6 +8,7 @@ local M = {}
 ---@field [3] string[][] hooks
 ---@field [4] string setup
 ---@field [5] string[] builds
+---@field [6] string? compiler
 
 ---@param root string
 ---@param filetypes string
@@ -15,6 +16,7 @@ local M = {}
 ---@param hooks string[]
 ---@param setup string
 ---@param builds string[]
+---@param compiler string?
 ---@param hook_choices_suffix string
 ---@return Profile
 ---@return string root_name
@@ -25,6 +27,7 @@ function M.new(
 	hooks,
 	setup,
 	builds,
+	compiler,
 	hook_choices_suffix
 )
 	utils.assert(
@@ -125,13 +128,13 @@ function M.new(
 		end
 		table.insert(parsed_builds, build)
 	end
-
 	return {
 		filetype_list,
 		depth_value,
 		hook_list,
 		setup,
 		parsed_builds,
+		compiler
 	},
 		root
 end
@@ -173,6 +176,29 @@ function M.build(profile, build_idx)
 	return M.builds(profile)[build_idx] or platform.NEWLINE
 end
 
+---@param profile Profile
+---@return string?
+function M.compiler(profile)
+	return profile[6]
+end
+
+---@param profile Profile
+---@param compiler_pairs [string, string][]
+---@return string?
+function M.get_errorformat(profile, compiler_pairs)
+	local target_compiler = M.compiler(profile)
+	if not target_compiler then
+		return
+	end
+	for _, compiler_pair in ipairs(compiler_pairs) do
+		local compiler = compiler_pair[1]
+		local errorformat = compiler_pair[2]
+		if compiler == target_compiler then
+			return errorformat
+		end
+	end
+end
+
 ---@param profile1 Profile
 ---@param profile2 Profile
 ---@return boolean
@@ -180,6 +206,7 @@ function M.equals(profile1, profile2)
 	return M.depth(profile1) == M.depth(profile2)
 		and M.setup(profile1) == M.setup(profile2)
 		and #M.filetypes(profile1) == #M.filetypes(profile2)
+		and M.compiler(profile1) == M.compiler(profile2)
 		and (function()
 			for i = 1, #M.filetypes(profile1) do
 				if M.filetypes(profile1)[i] ~= M.filetypes(profile2)[i] then
@@ -236,6 +263,7 @@ function M.set(target_profile, src_profile)
 		1,
 		M.builds(target_profile)
 	)
+	target_profile[6] = src_profile[6]
 end
 
 ---@param profile Profile

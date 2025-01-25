@@ -26,6 +26,8 @@ local M = {}
 ---@field preferences Preferences
 ---@field build_cache table<string, BuildPair>
 ---@field profile_editor ProfileEditor
+---@field error_window_is_open boolean
+---@field error_namespace integer
 
 ---@param state State
 ---@return string
@@ -120,6 +122,18 @@ function M.state_resolve_hooks(state)
 	end
 	state.hooks = new_hooks
 	return hooks_is_dirty
+end
+
+---@param state State
+---@return fun(): nil
+function M.state_write_atlas_function(state)
+	return function()
+		state.build_cache = {}
+		Atlas.atlas_write(
+			state.atlas,
+			Preferences.get_atlas_path(state.preferences)
+		)
+	end
 end
 
 ---@param state State
@@ -332,11 +346,7 @@ foreach ($item in $array) {
 		print("\nUpdated hook to: " .. input)
 		local hooks = Profile.hooks(profile)
 		hooks[hook_idx][2] = input
-		state.build_cache = {}
-		Atlas.atlas_write(
-			state.atlas,
-			Preferences.get_atlas_path(state.preferences)
-		)
+		M.state_write_atlas_function(state)()
 	end)
 end
 
@@ -353,17 +363,102 @@ M.state_set_hook = function(state, path, hook_name, hook_val)
 	for _, hook_pair in ipairs(Profile.hooks(profile)) do
 		if hook_pair[1] == hook_name then
 			hook_pair[2] = tostring(hook_val)
-			state.build_cache = {}
 			print("Updated hook to: " .. hook_val)
-			Atlas.atlas_write(
-				state.atlas,
-				Preferences.get_atlas_path(state.preferences)
-			)
+			M.state_write_atlas_function(state)()
 			return
 		end
 	end
 
 	utils.error(('Could not find hook "%s"'):format(hook_name))
+end
+
+---@param state State
+---@param path string
+---@param is_stable boolean
+M.toggle_errors = function(state, path, is_stable)
+	for _, diagnostic in ipairs(vim.diagnostic.get(0)) do
+		if diagnostic.source == "zuzu" then
+			vim.diagnostic.reset(state.error_namespace, 0)
+		end
+	end
+	if state.error_window_is_open then
+		vim.cmd("cclose")
+		state.error_window_is_open = false
+		return
+	end
+	local profile = utils.assert(
+		Atlas.resolve_profile(state.atlas, path),
+		"No applicable build profile found."
+	)
+
+	local compiler = utils.assert(
+		Profile.compiler(profile),
+		"The current build profile has no compiler."
+	)
+
+	local errorformat =
+		Profile.get_errorformat(profile, state.preferences.compilers)
+
+	if errorformat then
+		vim.opt.errorformat = errorformat
+	else
+		vim.cmd("compiler " .. compiler)
+	end
+
+	local handle = io.open(Preferences.get_last_stderr_path(state.preferences))
+	local text = handle and handle:read("*a") or ""
+	if handle then
+		handle:close()
+	end
+	if #text == 0 then
+		vim.notify("zuzu: No errors!")
+		return
+	end
+
+	vim.cmd("cgetfile " .. Preferences.get_last_stderr_path(state.preferences))
+
+	local quickfix_list = vim.fn.getqflist()
+	local diagnostics = {}
+	local diagnostic_idx = 1
+
+	for i, item in ipairs(quickfix_list) do
+		if item.bufnr ~= 0 then
+			table.insert(diagnostics, {
+				lnum = item.lnum - 1,
+				col = item.col - 1,
+				severity = vim.diagnostic.severity[item.type:lower()]
+					or vim.diagnostic.severity.WARN,
+				message = ("(#%d) %s"):format(diagnostic_idx, item.text),
+				source = "zuzu",
+			})
+			diagnostic_idx = diagnostic_idx + 1
+		end
+	end
+
+	local buf_id = vim.api.nvim_get_current_buf()
+	vim.diagnostic.set(state.error_namespace, buf_id, diagnostics)
+	vim.cmd("copen")
+	if is_stable then
+		vim.cmd("wincmd k")
+	end
+
+	state.error_window_is_open = true
+end
+
+---@param state State
+---@param path string
+---@param is_next boolean
+M.prev_or_next_error = function(state, path, is_next)
+	if not state.error_window_is_open then
+		M.toggle_errors(state, path, true)
+	end
+	if
+		not pcall(function()
+			vim.cmd(is_next and "cnext" or "cprevious")
+		end)
+	then
+		vim.cmd(is_next and "cfirst" or "clast")
+	end
 end
 
 return M

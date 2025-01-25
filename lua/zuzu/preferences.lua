@@ -11,6 +11,10 @@ local M = {}
 ---@field edit_all_applicable_profiles string
 ---@field edit_all_profiles string
 ---@field edit_hooks string
+---@field prev_error string
+---@field next_error string
+---@field toggle_errors string
+---@field stable_toggle_errors string
 
 ---@class (exact) PathPreferences
 ---@field root string
@@ -28,6 +32,7 @@ local M = {}
 ---@field keymaps Keymaps
 ---@field prompt_on_simple_edits boolean
 ---@field hook_choices_suffix string
+---@field compilers [string, string][]
 
 ---@param hook_name string
 ---@return string
@@ -57,6 +62,10 @@ M.DEFAULT = {
 		edit_all_applicable_profiles = "z?",
 		edit_all_profiles = "z*",
 		edit_hooks = "zh",
+		prev_error = "z[",
+		next_error = "z]",
+		stable_toggle_errors = "z\\",
+		toggle_errors = "z|",
 	},
 	display_strategies = {
 		require("zuzu.display_strategies").command,
@@ -80,6 +89,11 @@ M.DEFAULT = {
 	zuzu_function_name = "zuzu_cmd",
 	prompt_on_simple_edits = false,
 	hook_choices_suffix = "__c",
+	compilers = {
+		--- https://vi.stackexchange.com/a/44620
+		{ "python3", '%A %#File "%f"\\, line %l\\, in %o,%Z %#%m' },
+		{ "lua", "%E%\\\\?lua:%f:%l:%m,%E%f:%l:%m" }
+	},
 }
 
 ---@function function_name string
@@ -321,6 +335,26 @@ function M.bind_keymaps(preferences)
 		"zuzu: Edit all profiles"
 	)
 	set_keymap(keymaps.edit_hooks, "edit_hooks()", "zuzu: Edit hooks")
+	set_keymap(
+		keymaps.stable_toggle_errors,
+		"toggle_errors(true)",
+		"zuzu: Toggle error window"
+	)
+	set_keymap(
+		keymaps.toggle_errors,
+		"toggle_errors(false)",
+		"zuzu: Toggle error window"
+	)
+	set_keymap(
+		keymaps.prev_error,
+		"prev_or_next_error(false)",
+		"zuzu: Toggle error window"
+	)
+	set_keymap(
+		keymaps.next_error,
+		"prev_or_next_error(true)",
+		"zuzu: Toggle error window"
+	)
 end
 
 return M
