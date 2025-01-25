@@ -95,14 +95,17 @@ function M.profile_text(editor, id, profile)
 		Profile.setup(profile)
 	)
 	for i, keymap in ipairs(editor.preferences.keymaps.build[1]) do
-		local build_text = Profile.build(profile, i)
-		local name, rest = build_text:match("|(.+)|(.*)")
-		if name then
-			build_text = ("### {{ name: %s }}%s"):format(
-				name,
-				platform.NEWLINE .. rest
-			)
-		end
+		local name, build_text, compiler = Profile.build_info(profile, i)
+		build_text = (
+			name ~= tostring(i)
+				and ("### {{ name: %s }}%s"):format(name, platform.NEWLINE)
+			or ""
+		)
+			.. (compiler and ("### {{ compiler: %s }}%s"):format(
+				compiler,
+				platform.NEWLINE
+			) or "")
+			.. build_text
 		text = text .. ([[
 
 ### {{ %s }}
@@ -273,7 +276,7 @@ end
 function M.parse_editor_lines(editor, lines)
 	---@param line integer
 	---@param pattern string
-	---@param allowed string?
+	---@param allowed string[]?
 	---@return integer? line
 	---@return string? match
 	---@return string? errmsg
@@ -284,8 +287,16 @@ function M.parse_editor_lines(editor, lines)
 				return line, match
 			end
 			if lines[line]:sub(1, #"### {{ ") == "### {{ " and allowed then
-				local alt_pattern = ("### {{ %s: "):format(allowed)
-				if lines[line]:sub(1, #alt_pattern) ~= alt_pattern then
+				local alternate_match_exists = (function()
+					for _, allowed_key in ipairs(allowed) do
+						local alt_pattern = ("### {{ %s: "):format(allowed_key)
+						if lines[line]:sub(1, #alt_pattern) ~= alt_pattern then
+							return true
+						end
+					end
+					return false
+				end)()
+				if not alternate_match_exists then
 					utils.error(
 						string.format(
 							'Unexpected header: "%s"\nWas searching for pattern: "%s"',
@@ -304,7 +315,7 @@ function M.parse_editor_lines(editor, lines)
 
 	---@param line integer
 	---@param pattern string
-	---@param allowed string?
+	---@param allowed string[]?
 	---@return integer line
 	---@return string match
 	local expect_header = function(line, pattern, allowed)
@@ -334,7 +345,7 @@ function M.parse_editor_lines(editor, lines)
 
 		local filetypes, compiler
 		next_line, filetypes =
-			expect_header(line, "^### {{ filetypes: (.-) }}$", "compiler")
+			expect_header(line, "^### {{ filetypes: (.-) }}$", { "compiler" })
 		if next_line > line then
 			local compiler_line, match =
 				seek_header(line, "^### {{ compiler: (.-) }}$")
@@ -360,7 +371,7 @@ function M.parse_editor_lines(editor, lines)
 				"^### {{ %s }}$",
 				editor.preferences.keymaps.build[1][1]
 			),
-			"name"
+			{ "name", "compiler" }
 		)
 		local setup = concat_lines(line, next_line - 1)
 		line = next_line + 1
@@ -373,13 +384,14 @@ function M.parse_editor_lines(editor, lines)
 					"^### {{ %s }}$",
 					editor.preferences.keymaps.build[1][i]
 				),
-				"name"
+				{ "name", "compiler" }
 			)
 			builds[i - 1] = concat_lines(line, next_line - 1)
 			line = next_line + 1
 		end
 
-		next_line, _ = seek_header(line, "^### {{ root: (.-) }}$", "name")
+		next_line, _ =
+			seek_header(line, "^### {{ root: (.-) }}$", { "name", "compiler" })
 		next_line = next_line or #lines + 1
 		table.insert(builds, concat_lines(line, next_line - 1))
 		line = next_line
@@ -391,7 +403,6 @@ function M.parse_editor_lines(editor, lines)
 			setup,
 			builds,
 			compiler,
-			nil,
 			editor.preferences.hook_choices_suffix
 		)
 		ProfileMap.map_insert(profiles, root_name, profile)

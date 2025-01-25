@@ -119,13 +119,29 @@ function M.new(
 			build:sub(1, 1) ~= "|",
 			'Build script cannot start with "|"'
 		)
+		utils.assert(
+			build:sub(#build, #build) ~= "(",
+			'Build script cannot end with "("'
+		)
 		local name, rest = string.match(
 			build,
-			"^### {{ name: ([%w_-%.]+) }}" .. platform.NEWLINE .. "(.*)$"
+			"^### {{ name: ([%w_%-%.]+) }}" .. platform.NEWLINE .. "(.*)$"
 		)
 		if name then
-			build = string.format("|%s|%s", name, rest)
+			name = ("|%s|"):format(name)
+			build = rest
 		end
+		local build_compiler
+		build_compiler, rest = string.match(
+			build,
+			"^### {{ compiler: ([%w_%-%.]+) }}" .. platform.NEWLINE .. "(.*)$"
+		)
+		if build_compiler then
+			build_compiler = ("(%s("):format(build_compiler)
+			build = rest
+		end
+		build = (name or "") .. build .. (build_compiler or "")
+
 		table.insert(parsed_builds, build)
 	end
 	return {
@@ -134,7 +150,7 @@ function M.new(
 		hook_list,
 		setup,
 		parsed_builds,
-		compiler
+		compiler,
 	},
 		root
 end
@@ -294,13 +310,18 @@ end
 ---@param build_idx integer
 ---@return string build_name
 ---@return string build_text
+---@return string? build_compiler
 function M.build_info(profile, build_idx)
 	local build = M.build(profile, build_idx)
+	local name = tostring(build_idx)
+	local compiler
 	if build:sub(1, 1) == "|" then
-		local name, text = build:match("|(.-)|(.*)")
-		return name, text
+		name, build = build:match("|(.-)|(.*)")
 	end
-	return tostring(build_idx), build
+	if build:sub(#build, #build) == "(" then
+		build, compiler = build:match("(.*)%(([^%(]+)%($")
+	end
+	return name, build, compiler
 end
 
 return M
