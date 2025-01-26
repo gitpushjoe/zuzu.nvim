@@ -26,6 +26,16 @@ M.assert = function(expr, errmsg)
 	return expr
 end
 
+---@param tbl table
+---@return table
+M.reverse_table = function(tbl)
+	local new_tbl = {}
+	for _, item in ipairs(tbl) do
+		table.insert(new_tbl, 1, item)
+	end
+	return new_tbl
+end
+
 ---@param str string
 ---@param prefix string
 ---@return boolean

@@ -32,6 +32,7 @@ local M = {}
 ---@field zuzu_function_name string
 ---@field keymaps Keymaps
 ---@field prompt_on_simple_edits boolean
+---@field reverse_qflist_diagnostic_order boolean
 ---@field hook_choices_suffix string
 ---@field compilers [string, string][]
 
@@ -96,6 +97,7 @@ M.DEFAULT = {
 		{ "python3", '%A %#File "%f"\\, line %l\\, in %o,%Z %#%m' },
 		{ "lua", "%E%\\\\?lua:%f:%l:%m,%E%f:%l:%m" },
 	},
+	reverse_qflist_diagnostic_order = true
 }
 
 ---@function function_name string

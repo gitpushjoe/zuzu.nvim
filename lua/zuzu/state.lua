@@ -27,7 +27,7 @@ local M = {}
 ---@field preferences Preferences
 ---@field build_cache table<string, BuildPair>
 ---@field profile_editor ProfileEditor
----@field error_window_is_open boolean
+---@field qflist_open boolean
 ---@field error_namespace integer
 
 ---@param state State
@@ -155,17 +155,23 @@ function M.state_build(state, path, build_idx)
 	if not profile then
 		return nil, "No applicable build profile found."
 	end
+	if state.qflist_open then
+		M.toggle_qflist(state, true)
+	end
+
 	state.profile = profile
 	local hooks_is_dirty = M.state_resolve_hooks(state)
 	if hooks_is_dirty then
 		M.state_write_hooks(state)
 	end
+
 	local compiler = Profile.compiler(profile, build_idx) or ""
 	local compiler_is_dirty = compiler ~= state.compiler
 	state.compiler = compiler
 	if compiler_is_dirty then
 		M.state_write_compiler(state)
 	end
+
 	local build_name, build_text = Profile.build_info(profile, build_idx)
 	local build = state.build_cache[build_name]
 	local build_file_is_dirty = not (
@@ -173,10 +179,12 @@ function M.state_build(state, path, build_idx)
 		and build[1] == profile
 		and build[2] == build_idx
 	)
+
 	if build_file_is_dirty then
 		M.state_write_setup(state)
 		M.state_write_build(state, build_name, build_text, build_idx)
 	end
+
 	return platform.choose("source ", ". ")
 		.. Preferences.get_build_path(state.preferences, build_name)
 end
@@ -388,23 +396,18 @@ M.state_set_hook = function(state, path, hook_name, hook_val)
 end
 
 ---@param state State
----@param path string
 ---@param is_stable boolean
-M.toggle_qflist = function(state, path, is_stable)
+M.toggle_qflist = function(state, is_stable)
 	for _, diagnostic in ipairs(vim.diagnostic.get(0)) do
 		if diagnostic.source == "zuzu" then
 			vim.diagnostic.reset(state.error_namespace, 0)
 		end
 	end
-	if state.error_window_is_open then
+	if state.qflist_open then
 		vim.cmd("cclose")
-		state.error_window_is_open = false
+		state.qflist_open = false
 		return
 	end
-	local profile = utils.assert(
-		Atlas.resolve_profile(state.atlas, path),
-		"No applicable build profile found."
-	)
 
 	local compiler = utils.read_from_path(
 		Preferences.get_compiler_path(state.preferences) or ""
@@ -439,6 +442,10 @@ M.toggle_qflist = function(state, path, is_stable)
 	local diagnostics = {}
 	local diagnostic_idx = 1
 
+	if state.preferences.reverse_qflist_diagnostic_order then
+		quickfix_list = utils.reverse_table(quickfix_list)
+	end
+
 	for _, item in ipairs(quickfix_list) do
 		if item.bufnr ~= 0 then
 			table.insert(diagnostics, {
@@ -460,15 +467,17 @@ M.toggle_qflist = function(state, path, is_stable)
 		vim.cmd("wincmd k")
 	end
 
-	state.error_window_is_open = true
+	state.qflist_open = true
 end
 
 ---@param state State
----@param path string
 ---@param is_next boolean
-M.qflist_prev_or_next = function(state, path, is_next)
-	if not state.error_window_is_open then
-		M.toggle_qflist(state, path, true)
+M.qflist_prev_or_next = function(state, is_next)
+	if state.preferences.reverse_qflist_diagnostic_order then
+		is_next = not is_next
+	end
+	if not state.qflist_open then
+		M.toggle_qflist(state, true)
 	end
 	if
 		not pcall(function()
@@ -476,6 +485,13 @@ M.qflist_prev_or_next = function(state, path, is_next)
 		end)
 	then
 		vim.cmd(is_next and "cfirst" or "clast")
+		--- skip comment errors
+		pcall(function()
+			vim.cmd(is_next and "cnext" or "cprevious")
+		end)
+		pcall(function()
+			vim.cmd(is_next and "cprevious" or "cnext")
+		end)
 	end
 end
 

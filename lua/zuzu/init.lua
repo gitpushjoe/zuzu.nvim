@@ -93,16 +93,12 @@ end
 
 ---@param is_stable boolean
 M.toggle_qflist = function(is_stable)
-	if vim.fn.expand("%:p") == "" and state.error_window_is_open then
-		State.toggle_qflist(state, "", is_stable)
-		return
-	end
-	State.toggle_qflist(state, validate_path(), is_stable)
+	State.toggle_qflist(state, is_stable)
 end
 
 ---@param is_next boolean
 M.qflist_prev_or_next = function(is_next)
-	State.qflist_prev_or_next(state, vim.fn.expand("%:p"), is_next)
+	State.qflist_prev_or_next(state, is_next)
 end
 
 M.version = function()
@@ -141,7 +137,7 @@ M.setup = function(table)
 			atlas = atlas,
 			write_atlas_function = function() end,
 		},
-		error_window_is_open = false,
+		qflist_open = false,
 		error_namespace = vim.api.nvim_create_namespace("zuzu-errors"),
 	}
 	state.profile_editor.write_atlas_function =
