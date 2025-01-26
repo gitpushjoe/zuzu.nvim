@@ -105,7 +105,7 @@ M.DEFAULT = {
 	qflist_as_diagnostic = true,
 	qflist_diagnostic_error_level = "WARN",
 	write_on_run = true,
-	fold_profiles_in_editor = true
+	fold_profiles_in_editor = true,
 }
 
 ---@function function_name string
@@ -283,7 +283,13 @@ end
 ---@param preferences Preferences
 ---@return string
 function M.get_last_stderr_path(preferences)
-	return M.join_path(preferences, preferences.path.last_stderr_filename)
+	return M.join_path(
+		preferences,
+		platform.choose(
+			preferences.path.last_stderr_filename,
+			preferences.path.last_stdout_filename
+		)
+	)
 end
 
 ---@param preferences Preferences
