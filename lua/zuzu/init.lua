@@ -47,10 +47,10 @@ M.reopen = function(display_strategy_idx)
 	preferences.display_strategies[display_strategy_idx](
 		"cat "
 			.. Preferences.get_last_stdout_path(preferences)
-			.. " && echo -e '\\033[31m' && "
+			.. "; echo -e '\\033[31m'; "
 			.. "cat "
 			.. Preferences.get_last_stderr_path(preferences)
-			.. " && echo -n -e '\\033[0m'",
+			.. "; echo -n -e '\\033[0m'",
 		utils.read_only(
 			utils.assert(Atlas.resolve_profile(state.atlas, validate_path()))
 		),
