@@ -438,30 +438,33 @@ M.toggle_qflist = function(state, is_stable)
 
 	vim.cmd("cgetfile " .. Preferences.get_last_stderr_path(state.preferences))
 
-	local quickfix_list = vim.fn.getqflist()
-	local diagnostics = {}
-	local diagnostic_idx = 1
+	if state.preferences.qflist_as_diagnostic then
+		local quickfix_list = vim.fn.getqflist()
+		local diagnostics = {}
+		local diagnostic_idx = 1
 
-	if state.preferences.reverse_qflist_diagnostic_order then
-		quickfix_list = utils.reverse_table(quickfix_list)
-	end
-
-	for _, item in ipairs(quickfix_list) do
-		if item.bufnr ~= 0 then
-			table.insert(diagnostics, {
-				lnum = item.lnum - 1,
-				col = item.col - 1,
-				severity = vim.diagnostic.severity[item.type:lower()]
-					or vim.diagnostic.severity.WARN,
-				message = ("(#%d) %s"):format(diagnostic_idx, item.text),
-				source = "zuzu",
-			})
-			diagnostic_idx = diagnostic_idx + 1
+		if state.preferences.reverse_qflist_diagnostic_order then
+			quickfix_list = utils.reverse_table(quickfix_list)
 		end
+
+		for _, item in ipairs(quickfix_list) do
+			if item.bufnr ~= 0 then
+				table.insert(diagnostics, {
+					lnum = item.lnum - 1,
+					col = item.col - 1,
+					severity = vim.diagnostic.severity[item.type:lower()]
+						or vim.diagnostic.severity.WARN,
+					message = ("(#%d) %s"):format(diagnostic_idx, item.text),
+					source = "zuzu",
+				})
+				diagnostic_idx = diagnostic_idx + 1
+			end
+		end
+
+		local buf_id = vim.api.nvim_get_current_buf()
+		vim.diagnostic.set(state.error_namespace, buf_id, diagnostics)
 	end
 
-	local buf_id = vim.api.nvim_get_current_buf()
-	vim.diagnostic.set(state.error_namespace, buf_id, diagnostics)
 	vim.cmd("copen")
 	if is_stable then
 		vim.cmd("wincmd k")
