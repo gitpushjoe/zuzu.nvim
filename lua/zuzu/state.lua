@@ -400,7 +400,7 @@ end
 M.toggle_qflist = function(state, is_stable)
 	for _, diagnostic in ipairs(vim.diagnostic.get(0)) do
 		if diagnostic.source == "zuzu" then
-			vim.diagnostic.reset(state.error_namespace, 0)
+			vim.diagnostic.reset(state.error_namespace)
 		end
 	end
 	if state.qflist_open then

@@ -29,6 +29,9 @@ M.run = function(build_idx, display_strategy_idx)
 		type(display_strategy_idx) == type(1),
 		"`display_strategy_idx` should be an integer"
 	)
+	if state.preferences.write_on_run then
+		vim.cmd('write')
+	end
 	local cmd =
 		utils.assert(State.state_build(state, validate_path(), build_idx))
 	preferences.display_strategies[display_strategy_idx](

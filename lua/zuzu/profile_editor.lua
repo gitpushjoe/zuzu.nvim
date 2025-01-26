@@ -179,6 +179,7 @@ function M.editor_open(editor, profiles, link_profiles)
 		return 1
 	end)()
 
+	local original_buf_id = vim.api.nvim_get_current_buf()
 	local buf_id = vim.api.nvim_create_buf(false, true)
 	editor.state = {
 		linked_profiles = link_profiles and profiles or {},
@@ -219,7 +220,7 @@ function M.editor_open(editor, profiles, link_profiles)
 			local actions, should_prompt_user =
 				M.generate_actions(editor, profile_map)
 			if #actions == 0 then
-				vim.cmd("bprev!")
+				vim.api.nvim_set_current_buf(original_buf_id)
 				vim.api.nvim_buf_delete(buf_id, {})
 				return
 			end
@@ -227,7 +228,7 @@ function M.editor_open(editor, profiles, link_profiles)
 			vim.api.nvim_echo(prompt, false, {})
 			local apply = function()
 				M.apply_actions(editor, actions)
-				vim.cmd("bprev!")
+				vim.api.nvim_set_current_buf(original_buf_id)
 				vim.api.nvim_buf_delete(buf_id, {})
 			end
 			if not should_prompt_user then
@@ -236,7 +237,7 @@ function M.editor_open(editor, profiles, link_profiles)
 			end
 			vim.ui.input({ prompt = "" }, function(input)
 				if string.lower(string.sub(input, 1, 1)) == "x" then
-					vim.cmd("bprev!")
+					vim.api.nvim_set_current_buf(original_buf_id)
 					vim.api.nvim_buf_delete(buf_id, {})
 				elseif string.lower(string.sub(input, 1, 1)) == "y" then
 					apply()

@@ -34,6 +34,7 @@ local M = {}
 ---@field prompt_on_simple_edits boolean
 ---@field reverse_qflist_diagnostic_order boolean
 ---@field qflist_as_diagnostic boolean
+---@field write_on_run boolean
 ---@field hook_choices_suffix string
 ---@field compilers [string, string][]
 
@@ -99,7 +100,8 @@ M.DEFAULT = {
 		{ "lua", "%E%\\\\?lua:%f:%l:%m,%E%f:%l:%m" },
 	},
 	reverse_qflist_diagnostic_order = true,
-	qflist_as_diagnostic = true
+	qflist_as_diagnostic = true,
+	write_on_run = true
 }
 
 ---@function function_name string
