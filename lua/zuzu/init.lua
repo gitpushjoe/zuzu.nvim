@@ -1,5 +1,6 @@
 local Atlas = require("zuzu.atlas")
 local Preferences = require("zuzu.preferences")
+local Platform = require("zuzu.platform")
 local State = require("zuzu.state")
 local utils = require("zuzu.utils")
 local M = {}
@@ -30,7 +31,7 @@ M.run = function(build_idx, display_strategy_idx)
 		"`display_strategy_idx` should be an integer"
 	)
 	if state.preferences.write_on_run then
-		vim.cmd('write')
+		vim.cmd("write")
 	end
 	local cmd =
 		utils.assert(State.state_build(state, validate_path(), build_idx))
@@ -47,10 +48,10 @@ M.reopen = function(display_strategy_idx)
 	preferences.display_strategies[display_strategy_idx](
 		"cat "
 			.. Preferences.get_last_stdout_path(preferences)
-			.. "; echo -e '\\033[31m'; "
+			.. Platform.choose("&& echo -e '\\033[31m'; ", "; ")
 			.. "cat "
 			.. Preferences.get_last_stderr_path(preferences)
-			.. "; echo -n -e '\\033[0m'",
+			.. Platform.choose("; echo -n -e '\\033[0m'", ""),
 		utils.read_only(
 			utils.assert(Atlas.resolve_profile(state.atlas, validate_path()))
 		),
