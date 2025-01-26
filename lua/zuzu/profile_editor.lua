@@ -153,11 +153,21 @@ end
 ---@param editor ProfileEditor
 ---@param profiles ProfileMap
 ---@param link_profiles boolean?
-function M.editor_open(editor, profiles, link_profiles)
+---@param id_order string[]?
+function M.editor_open(editor, profiles, link_profiles, id_order)
 	link_profiles = link_profiles or false
 	M.editor_close(editor)
 	local text = (function()
 		local res = ""
+		if id_order then
+			for _, id in ipairs(id_order) do
+				local profile = profiles[id]
+				res = res
+					.. (res ~= "" and platform.NEWLINE or "")
+					.. M.profile_text(editor, id, profile)
+			end
+			return res
+		end
 		for id, profile in pairs(profiles) do
 			res = res
 				.. (res ~= "" and platform.NEWLINE or "")
@@ -166,7 +176,27 @@ function M.editor_open(editor, profiles, link_profiles)
 		return res
 	end)()
 
+	local original_buf_id = vim.api.nvim_get_current_buf()
+	local buf_id = vim.api.nvim_create_buf(false, true)
+	vim.api.nvim_buf_set_option(buf_id, "filetype", "bash")
+	vim.api.nvim_buf_set_name(buf_id, "zuzu///editor")
+	vim.api.nvim_set_current_buf(buf_id)
+
 	local lines = vim.split(text:gsub("\r", ""), "\n")
+	vim.api.nvim_buf_set_lines(buf_id, 0, -1, false, lines)
+
+	if editor.preferences.fold_profiles_in_editor then
+		local last_root_line
+		for i, line in ipairs(lines) do
+			if utils.str_starts_with(line, "### {{ root: ") then
+				if last_root_line then
+					vim.cmd(("%d,%d fold"):format(last_root_line, i - 1))
+				end
+				last_root_line = i
+			end
+		end
+	end
+
 	local cursor_pos = (function()
 		local header = ("### {{ %s }}"):format(
 			editor.preferences.keymaps.build[1][1]
@@ -178,18 +208,13 @@ function M.editor_open(editor, profiles, link_profiles)
 		end
 		return 1
 	end)()
+	vim.api.nvim_win_set_cursor(0, { cursor_pos, 0 })
 
-	local original_buf_id = vim.api.nvim_get_current_buf()
-	local buf_id = vim.api.nvim_create_buf(false, true)
 	editor.state = {
 		linked_profiles = link_profiles and profiles or {},
 		buf_id = buf_id,
 	}
-	vim.api.nvim_buf_set_option(buf_id, "filetype", "bash")
-	vim.api.nvim_buf_set_name(buf_id, "zuzu///editor")
-	vim.api.nvim_buf_set_lines(buf_id, 0, -1, false, lines)
-	vim.api.nvim_set_current_buf(buf_id)
-	vim.api.nvim_win_set_cursor(0, { cursor_pos, 0 })
+
 	vim.api.nvim_create_augroup("CloseBufferOnBufferClose", { clear = true })
 	vim.api.nvim_create_autocmd("BufLeave", {
 		group = "CloseBufferOnBufferClose",

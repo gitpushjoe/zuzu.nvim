@@ -217,24 +217,46 @@ function M.state_edit_most_applicable_profile(state, path)
 end
 
 ---@param state State
-function M.state_edit_all_profiles(state)
+---@param path string
+function M.state_edit_all_profiles(state, path)
 	local profile_map = {}
-	for root, profiles in pairs(state.atlas) do
+	local id_order = {}
+	local all_roots = {}
+	for root in pairs(state.atlas) do
+		table.insert(all_roots, root)
+	end
+	table.sort(all_roots)
+	local current_profile = Atlas.resolve_profile(state.atlas, path)
+	local current_id
+	for _, root in ipairs(all_roots) do
+		local profiles = state.atlas[root]
 		for _, profile in ipairs(profiles) do
-			profile_map[ProfileMap.get_id(root, profile)] = profile
+			local id = ProfileMap.get_id(root, profile)
+			profile_map[id] = profile
+			if profile ~= current_profile then
+				table.insert(id_order, id)
+			else
+				current_id = id
+			end
 		end
 	end
-	ProfileEditor.editor_open(state.profile_editor, profile_map, true)
+	if current_id then
+		table.insert(id_order, current_id)
+	end
+	ProfileEditor.editor_open(state.profile_editor, profile_map, true, id_order)
 end
 
 ---@param state State
 ---@param path string
 function M.state_edit_all_applicable_profiles(state, path)
 	local profile_map = {}
+	local id_order = {}
 	for profile, root in Atlas.resolve_profile_generator(state.atlas, path) do
-		profile_map[ProfileMap.get_id(root, profile)] = profile
+		local id = ProfileMap.get_id(root, profile)
+		profile_map[id] = profile
+		table.insert(id_order, 1, id)
 	end
-	ProfileEditor.editor_open(state.profile_editor, profile_map, true)
+	ProfileEditor.editor_open(state.profile_editor, profile_map, true, id_order)
 end
 
 ---@param state State
@@ -398,6 +420,12 @@ end
 ---@param state State
 ---@param is_stable boolean
 M.toggle_qflist = function(state, is_stable)
+	utils.assert(
+		vim.api.nvim_get_current_buf()
+			~= (state.profile_editor.state or {}).buf_id,
+		"Cannot toggle_qflist in profile editor"
+	)
+
 	for _, diagnostic in ipairs(vim.diagnostic.get(0)) do
 		if diagnostic.source == "zuzu" then
 			vim.diagnostic.reset(state.error_namespace)
@@ -476,6 +504,12 @@ end
 ---@param state State
 ---@param is_next boolean
 M.qflist_prev_or_next = function(state, is_next)
+	utils.assert(
+		vim.api.nvim_get_current_buf()
+			~= (state.profile_editor.state or {}).buf_id,
+		"Cannot shift in qflist in profile editor"
+	)
+
 	if state.preferences.reverse_qflist_diagnostic_order then
 		is_next = not is_next
 	end

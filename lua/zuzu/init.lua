@@ -77,7 +77,7 @@ M.edit_all_applicable_profiles = function()
 end
 
 M.edit_all_profiles = function()
-	State.state_edit_all_profiles(state)
+	State.state_edit_all_profiles(state, validate_path())
 end
 
 ---@param hook_name string
