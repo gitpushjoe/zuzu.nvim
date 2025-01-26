@@ -124,7 +124,8 @@ M.background = function(
 				return
 			end
 
-			local handle = io.open(last_stderr_path)
+			local handle =
+				io.open(Platform.choose(last_stderr_path, last_stdout_path))
 			local text = handle and handle:read("*a") or ""
 			local success = #text == 0
 			if handle then
