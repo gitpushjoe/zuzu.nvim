@@ -92,7 +92,7 @@ function M.state_write_build(state, build_name, build_text, build_idx)
 					Preferences.get_last_stdout_path(state.preferences),
 					Preferences.get_last_stderr_path(state.preferences)
 				),
-				("%s 2>&1 | Tee-Object %s"):format(
+				("%s | Tee-Object %s"):format(
 					state.preferences.zuzu_function_name,
 					Preferences.get_last_stdout_path(state.preferences)
 				)
