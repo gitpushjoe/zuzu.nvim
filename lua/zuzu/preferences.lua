@@ -34,6 +34,7 @@ local M = {}
 ---@field prompt_on_simple_edits boolean
 ---@field reverse_qflist_diagnostic_order boolean
 ---@field qflist_as_diagnostic boolean
+---@field qflist_diagnostic_error_level string
 ---@field write_on_run boolean
 ---@field hook_choices_suffix string
 ---@field compilers [string, string][]
@@ -101,6 +102,7 @@ M.DEFAULT = {
 	},
 	reverse_qflist_diagnostic_order = true,
 	qflist_as_diagnostic = true,
+	qflist_diagnostic_error_level = "WARN",
 	write_on_run = true
 }
 

@@ -453,7 +453,7 @@ M.toggle_qflist = function(state, is_stable)
 					lnum = item.lnum - 1,
 					col = item.col - 1,
 					severity = vim.diagnostic.severity[item.type:lower()]
-						or vim.diagnostic.severity.WARN,
+						or state.preferences.qflist_diagnostic_error_level,
 					message = ("(#%d) %s"):format(diagnostic_idx, item.text),
 					source = "zuzu",
 				})
