@@ -2,6 +2,7 @@ local Atlas = require("zuzu.atlas")
 local Preferences = require("zuzu.preferences")
 local State = require("zuzu.state")
 local utils = require("zuzu.utils")
+local platform = require("zuzu.platform")
 local M = {}
 
 ---@type State
@@ -29,14 +30,40 @@ M.run = function(build_idx, display_strategy_idx)
 		type(display_strategy_idx) == type(1),
 		"`display_strategy_idx` should be an integer"
 	)
+	if
+		state.preferences.write_on_run
+		and vim.api.nvim_buf_get_option(0, "modified")
+	then
+		vim.cmd("write")
+	end
 	local cmd =
 		utils.assert(State.state_build(state, validate_path(), build_idx))
-	preferences.display_strategies[display_strategy_idx](cmd)
+	preferences.display_strategies[display_strategy_idx](
+		cmd,
+		utils.read_only(assert(state.profile)),
+		build_idx,
+		Preferences.get_last_stdout_path(preferences),
+		Preferences.get_last_stderr_path(preferences)
+	)
 end
 
 M.reopen = function(display_strategy_idx)
 	preferences.display_strategies[display_strategy_idx](
-		"cat " .. Preferences.get_last_path(preferences)
+		"cat "
+			.. Preferences.get_last_stdout_path(preferences)
+			.. (
+				platform.PLATFORM ~= "win"
+					and " && echo -e '\\033[31m' && " .. "cat " .. Preferences.get_last_stderr_path(
+						preferences
+					) .. " && echo -n -e '\\033[0m'"
+				or ""
+			),
+		utils.read_only(
+			utils.assert(Atlas.resolve_profile(state.atlas, validate_path()))
+		),
+		0,
+		Preferences.get_last_stdout_path(preferences),
+		Preferences.get_last_stderr_path(preferences)
 	)
 end
 
@@ -57,7 +84,7 @@ M.edit_all_applicable_profiles = function()
 end
 
 M.edit_all_profiles = function()
-	State.state_edit_all_profiles(state)
+	State.state_edit_all_profiles(state, validate_path())
 end
 
 ---@param hook_name string
@@ -72,6 +99,16 @@ end
 ---@param hook_name string
 M.set_hook = function(hook_name, hook_val)
 	State.state_set_hook(state, validate_path(), hook_name, hook_val)
+end
+
+---@param is_stable boolean?
+M.toggle_qflist = function(is_stable)
+	State.toggle_qflist(state, is_stable or false)
+end
+
+---@param is_next boolean
+M.qflist_prev_or_next = function(is_next)
+	State.qflist_prev_or_next(state, is_next)
 end
 
 M.version = function()
@@ -91,6 +128,9 @@ M.setup = function(table)
 	vim.cmd([[highlight ZuzuOverwrite guifg=LightMagenta]])
 	vim.cmd([[highlight ZuzuDelete guifg=#ff3030]])
 	vim.cmd([[highlight ZuzuHighlight guifg=Orange]])
+	vim.cmd([[highlight ZuzuBackgroundRun guifg=#888888]])
+	vim.cmd([[highlight ZuzuSuccess guifg=LightGreen]])
+	vim.cmd([[highlight ZuzuFailure guifg=LightRed]])
 	setup_called = true
 	preferences = utils.assert(
 		Preferences.new('require("zuzu.nvim").setup(...)', table or {})
@@ -105,11 +145,13 @@ M.setup = function(table)
 		profile_editor = {
 			preferences = preferences,
 			atlas = atlas,
-			cache_clear = function()
-				state.build_cache = {}
-			end,
+			write_atlas_function = function() end,
 		},
+		qflist_open = false,
+		error_namespace = vim.api.nvim_create_namespace("zuzu-errors"),
 	}
+	state.profile_editor.write_atlas_function =
+		State.state_write_atlas_function(state)
 	Preferences.bind_keymaps(preferences)
 end
 

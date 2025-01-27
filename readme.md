@@ -23,15 +23,19 @@ https://github.com/user-attachments/assets/c0d6c5e6-1375-44a3-81f5-7481857f1e4e
 	* create generalized setup code to apply to all builds
   * ### [🧠 smart profile resolution](#-profile-resolution)
 	* if multiple profiles apply to one file, zuzu will intelligently choose the best one
-	* allows you to create profiles that will work on Python/Javascript/etc. files without setup
+	* allows you to create profiles that will work on any Python/Javascript/etc. file without setup
+  * ### [✔  quickfix integration!](#-quickfix)
+	* view runtime errors as [diagnostic messages](#-quickfix) in your source code
+	* jump between lines of an error traceback quickly 
   * ### [💲 hooks! (dynamic environment variables)](#-hooks)
 	* built-in core hooks for things like `$file`, `$dir`, `$parent`, etc.
 	* create your own core hooks that will be always be initialized in every build
 	* interactive interface for editing hooks
-	* create [hook choices](#-hook-choices) to easily choose from a list of pre-defined options
+	* create [hook choices](#hook-choices) to easily choose from a list of pre-defined options
   * ### [🖥 versatile display options](#-display-strategies)
 	* create your own display strategy (command mode, split terminal right, split terminal below, etc.)
 	* bind keymaps to different display strategies
+	* you can even run builds in the background!
   * ### [⚡ blazingly fast (<1ms of overhead)](#-benchmarks)
 	* build scripts are also cached to avoid writing files several times on repeated runs
   * ### 🌐 cross-platform!
@@ -49,7 +53,13 @@ https://github.com/user-attachments/assets/c0d6c5e6-1375-44a3-81f5-7481857f1e4e
     * [Deleting Profiles](#-deleting-profiles)
     * [Profile Resolution](#-profile-resolution)
 * [Hooks](#-hooks)
-* [Naming Builds](#-naming-builds)
+    * [Core Hooks](#core-hooks)
+    * [Hook Choices](#hook-choices)
+* [Customizing Builds](#%EF%B8%8F-customizing-builds)
+    * [Naming Builds](#-naming-builds)
+    * [Quickfix](#-quickfix)
+        * [Assigning a Compiler](#assigning-a-compiler)
+        * [Registering a New Compiler](#registering-a-new-compiler)
 * [Display Strategies](#-display-strategies)
 * [API](#-api)
 * [Benchmarks](#-benchmarks)
@@ -80,10 +90,10 @@ zuzu.nvim can be installed with the usual plugin managers:
 #### lazy.nvim
 ```lua
 {
-   "gitpushjoe/zuzu.nvim",
-   opts = {
-      --- add options here
-   }
+	"gitpushjoe/zuzu.nvim",
+	opts = {
+		--- add options here
+	}
 }
 ```
 
@@ -108,15 +118,16 @@ Default configuration:
 ```lua
 require("zuzu").setup({
 	build_count = 4,
-	display_strategy_count = 3,
+	display_strategy_count = 4,
 	keymaps = {
 		build = {
 			{ "zu", "ZU", "zU", "Zu" },
 			{ "zv", "ZV", "zV", "Zv" },
 			{ "zs", "ZS", "zS", "Zs" },
+			{ "zb", "ZB", "zB", "Zb" },
 		},
 		reopen = {
-			"z,",
+			"z.",
 			'z"',
 			"z:",
 		},
@@ -126,19 +137,30 @@ require("zuzu").setup({
 		edit_all_applicable_profiles = "z?",
 		edit_all_profiles = "z*",
 		edit_hooks = "zh",
+		qflist_prev = "z[",
+		qflist_next = "z]",
+		stable_toggle_qflist = "z\\",
+		toggle_qflist = "z|",
 	},
 	display_strategies = {
 		require("zuzu.display_strategies").command,
 		require("zuzu.display_strategies").split_right,
 		require("zuzu.display_strategies").split_below,
+		require("zuzu.display_strategies").background,
 	},
 	path = {
-		root = require("zuzu.platform").join_path(vim.fn.stdpath("data"), "zuzu"),
+		root = require("zuzu.platform").join_path(
+			vim.fn.stdpath("data"), 
+			"zuzu"
+		),
 		atlas_filename = "atlas.json",
-		last_output_filename = "last.txt",
+		last_stdout_filename = "stdout.txt",
+		-- Note: last_stderr_filename is not used on Windows
+		last_stderr_filename = "stderr.txt",
+		compiler_filename = "compiler.txt",
 	},
 	core_hooks = {
-		-- Note: These are actually "env:file", "env:dir", etc. on Windows.
+		-- Note: these are actually "env:file", "env:dir", etc. on Windows
 		{ "file", require("zuzu.hooks").file },
 		{ "dir", require("zuzu.hooks").directory },
 		{ "parent", require("zuzu.hooks").parent_directory },
@@ -148,29 +170,57 @@ require("zuzu").setup({
 	zuzu_function_name = "zuzu_cmd",
 	prompt_on_simple_edits = false,
 	hook_choices_suffix = "__c",
+	compilers = {
+		-- https://vi.stackexchange.com/a/44620
+		{ "python3", '%A %#File "%f"\\, line %l\\, in %o,%Z %#%m' },
+		{ "lua", "%E%\\\\?lua:%f:%l:%m,%E%f:%l:%m" },
+		-- https://github.com/felixge/vim-nodejs-errorformat/blob/master/ftplugin/javascript.vim
+		-- Note: This will also work for bun.	
+		{
+			"node",
+			[[%AError: %m,%AEvalError: %m,%ARangeError: %m,%AReferenceError: %m,%ASyntaxError: %m,%ATypeError: %m,%Z%*[\ ]at\ %f:%l:%c,%Z%*[\ ]%m (%f:%l:%c),%*[\ ]%m (%f:%l:%c),%*[\ ]at\ %f:%l:%c,%Z%p^,%A%f:%l,%C%m,%-G%.%#]],
+		},
+	},
+	qflist_as_diagnostic = true,
+	reverse_qflist_diagnostic_order = false,
+	qflist_diagnostic_error_level = "WARN",
+	write_on_run = true,
+	fold_profiles_in_editor = true,
 })
 ```
 
 |Key |Explanation |
 |-|-|
 |`build_count`|The number of different builds for each [profile](#-profiles).
-|`display_strategy_count`|The number of [display strategies](#-display-strategies). The 3 strategies by default are "command-mode" `:!source run.sh`, split-right-terminal, and split-below-terminal.
+|`display_strategy_count`|The number of [display strategies](#-display-strategies). The 4 strategies by default are "command-mode" `:!source run.sh`, split-right-terminal, and split-below-terminal, and background.
 |`keymaps.build`|A 2D list of keymaps. The first row is mapped to the first display strategy, the second row to the second, and so on. The first keymap in each row is mapped to build #1, the second to build #2, and so on. So, for example, pressing `"zV"` will run the 3rd build in the current profile, with the 2nd build display style (split-right-terminal). Use `""` to not bind any keymap.
 |`keymaps.reopen`|Every time zuzu is run, its output is saved to the `path.root` directory at `path.last_output_filename`. Pressing `keymap.reopen[i]` will show the output from the last time zuzu was run, using display strategy #`i`.
 |`keymaps.new_profile`|Creates a new profile. Sets the root to the current file and sets the depth to 0.
 |`keymaps.new_project_profile`|Creates a new profile. Sets the root to the *directory* of the current file and sets the depth to -1 (any depth).
 |`keymaps.edit_profile`|Shows the profile for the current file (the most applicable profile).
-|`keymaps.edit_all_applicable_profiles`|Shows all applicable profiles for the current file. Note that these profiles are *not* shown in any order.
+|`keymaps.edit_all_applicable_profiles`|Shows all applicable profiles for the current file, in order from least applicable to most.
 |`keymaps.edit_all_profiles`|Shows all profiles.
 |`keymaps.edit_hooks`|Opens an interactive menu for updating a [hook](#-hooks).
+|`keymaps.qflist_prev`|Opens the quickfix list if it's closed, and jumps to the previous error (see [:cprevious](https://neovim.io/doc/user/quickfix.html#%3Acprevious)).
+|`keymaps.qflist_next`|Opens the quickfix list if it's closed, and jumps to the nextious error (see [:cnext](https://neovim.io/doc/user/quickfix.html#%3Acnextious)).
+|`keymaps.stable_toggle_qflist`|Toggles the state of the quickfix list, keeping the cursor in the current window.
+|`keymaps.toggle_qflist`|Toggles the state of the quickfix list, putting the cursor in the quickfix list. Also toggles whether quickfix diagnostics are shown/hidden.
 |`display_strategies`|List of [display strategies](#-display-strategies). 
 |`path.root`|The root directory zuzu will use to save any files its creates.
 |`path.atlas_filename`|The filename for the atlas saved to `path.root`.
-|`path.last_output_filename`|The filename to save the output of the last time zuzu was run to.
+|`path.last_stdout_filename`|The filename to save the stdout to from the last time zuzu was run.
+|`path.last_stderr_filename`|The filename to save the stderr to from the last time zuzu was run.
+|`path.compiler_filename`|The filename to save the [compiler name](#-quickfix) to from the last time zuzu was run.
 |`core_hooks`|A list of tuples. The first item in each tuple is the name of the [hook](#-hook), and the second item is a callback to get the value of the hook. For example, by default, the hooks `$file` and `$dir` will be automatically initialized to the current file and directory, respectively, before every build.
 |`zuzu_function_name`|To run a build, zuzu generates a shell file (`.sh` on UNIX-based, `.ps1` on windows) and puts the build script in a function. This is the name of the function.
-|`prompt_on_simple_edits`|Determines whether or not to show a confirmation prompt on simple edits (no overwrites or deletes).
+|`prompt_on_simple_edits`|If `false`, zuzu will skip the confirmation prompt on simple edits (no overwrites or deletes).
 |`hook_choices_suffix`|See [Hooks](#-hooks).
+|`compilers`|A list of { compiler-name, [errorformat](https://neovim.io/doc/user/quickfix.html#errorformat) } tuples. When running a build, zuzu will search this list first before running [:compiler](https://neovim.io/doc/user/quickfix.html#%3Acompiler). See [Quickfix](#-quickfix).
+|`qflist_as_diagnostic`|If `true`, the quickfix list locations will also be shown as diagnostics.
+|`reverse_qflist_diagnostic_order`|If `true`, then the last quickfix diagnostic will be labeled as #1 instead of the first. The direction of `qflist_`{`prev`/`next`} will also be swapped.
+|`qflist_diagnostic_error_level`|The [severity](https://neovim.io/doc/user/diagnostic.html#vim.diagnostic.severity) to use for the quickfix list diagnostics.
+|`write_on_run`|If `true`, the current file will be saved before running a build.
+|`fold_profiles_in_editor`|If `true`, whenever multiple profiles are shown in the profile editor, they will all be folded, except for the most relevant profile.
 
 <br />
 
@@ -349,7 +399,7 @@ and then save the profile with `:w`, you can press `zu` to run the first build c
 
 ### ✏  Editing Profiles
 
-To edit a profile after it's been created, you can use `z=` to open it. This will open the [most applicable profile](#-profile-resolution) for the currently-open file. `z?` will open all profiles that apply to the curent file, but they (currently) won't be listed in any particular order. `z*` will open all profiles. To apply your changes, use `:w`.
+To edit a profile after it's been created, you can use `z=` to open it. This will open the [most applicable profile](#-profile-resolution) for the currently-open file. `z?` will open all profiles that apply to the current file, in order from least applicable to most. `z*` will open all profiles. To apply your changes, use `:w`.
 
 <br/>
 
@@ -445,7 +495,7 @@ Write-Output "Applying filter $filter to $image with level $level"
 
 ### Core Hooks
 
-Some hooks are available by default, and are automatically set every time a build command is run. These are called "core hooks" and can be changed, renamed, or added to in the `setup()` command. The default core hooks are as follows:
+Some hooks are available by default, and are automatically initialized every time a build command is run. These are called "core hooks" and can be changed, renamed, or added to in the `setup()` command. To create a new hook, simply pass a tuple to the `core_hooks` list of `setup()` with the first item being the name of the hook, and the second item being a function that returns the hook's value. The default core hooks are as follows:
 
 |Hook name|Hook value
 |-|-|
@@ -502,7 +552,9 @@ echo "Applying filter $filter to $image with level $level"
 
 <br/>
 
-## 🖋 Naming Builds
+## 🖌️ Customizing Builds
+
+### 🖋 Naming Builds
 
 You can also give builds a name (alphanumeric characters only, no spaces), like so:
 
@@ -519,9 +571,69 @@ This will give the build a custom filename in the builds folder. Doing this has 
 
 <br/>
 
+### ✅ Quickfix
+
+> [!Note]
+> This feature is not supported on Windows.
+
+Similarly to [:make](https://neovim.io/doc/user/quickfix.html#%3Amake), zuzu.nvim allows you to assign the name of a compiler to a profile or build. (Neovim comes with quite a few compilers already configured. Type `:compiler` and then press [Tab] to see them.) Whenever a build is executed, the stderr output is always written to disk in the zuzu folder under the stderr filename specified in `setup()`. After executing a build, pressing `z\` or `z|` (or also `z]` or `z[`) will parse the stderr file using the compiler assigned to the profile or build, and open the quickfix list. (The syntax for doing so is below the image.) Here is an example of how this will appear in Neovim:
+
+![Example](https://i.imgur.com/KW4hddg.png)
+
+> [!Tip]
+> The numbers of the diagnostics count in the opposite direction of their appearances in the quickfix list. This can be preferable for compilers like Python, where the line closest to the source of the error is printed last rather than first. To reverse the order like this, use the `reverse_qflist_diagnostic_order` option in `setup()`. 
+
+<br/>
+
+#### Assigning a Compiler
+
+Compilers can be assigned either to all builds in a profile, or to a specific build. If the compiler assigned to a build is different from the compiler assigned to the profile, then the build-specific compiler will be chosen. To assign a compiler to a profile, insert `### {{ compiler: name-of-the-compiler }}` **under** the root header, but **above** the filetypes header. To assign a compiler to a build, insert the header **below** the keymap header, and **below** the name header, if there is one.
+
+```sh
+### {{ root: * }}
+### {{ compiler: python3 }}
+### {{ filetypes: py }}
+### {{ depth: -1 }}
+### {{ hooks }}
+### {{ setup }}
+cd $dir
+
+### {{ zu }}
+# This build will use the "python3" compiler for stderr parsing.
+python3 $file
+
+### {{ ZU }}
+### {{ compiler: pyunit }}
+# This will override the "python3" compiler above, and use the "pyunit" compiler.
+python3 -m unittest discover -s tests
+```
+
+<br/>
+
+#### Registering a New Compiler
+
+If the compiler you use isn't available under `:compiler` (or you dislike its implementation), you can register it. Simply add the name of the compiler and its [errorformat](https://neovim.io/doc/user/quickfix.html#errorformat) under the `compilers` parameter in `setup()`. errorformats for Python3, lua, and node have been provided, but if you have found/written an errorformat for your language, feel free to submit a pull request.
+
 ## 🖥 Display Strategies
 
-Display strategies control the way that build commands are run in Neovim. They are functions that take in the shell command as a string. By default, zuzu uses these three display strategies:
+Display strategies control the way that build commands are run in Neovim. They are functions that take in the following arguments:
+
+```lua
+---@param shell_cmd string
+---@param profile Profile
+---@param build_idx integer
+---@param last_stdout_path string
+---@param last_stderr_path string
+local function my_strategy(
+	shell_cmd, 
+	profile, 
+	build_idx, 
+	last_stdout_path, 
+	last_stderr_path
+)
+```
+
+By default, zuzu uses these four display strategies:
 
 ```lua
 # require("zuzu.display_strategies")
@@ -538,6 +650,14 @@ end
 
 M.split_below = function(cmd)
 	vim.cmd("horizontal rightbelow split | terminal " .. cmd)
+end
+
+M.background = function(...)
+	-- The implementation is too long to put here.
+	-- See ./lua/zuzu/display_strategies.lua
+	-- This display strategy runs the command in the "background" by opening 
+	-- a new terminal buffer, and switching back to the current buffer. (No
+        -- flash/change is noticeable). To access the buffer, use `:bnext`.
 end
 
 return M
@@ -578,7 +698,7 @@ require("zuzu").edit_all_profiles()
 
 -- Opens a prompt to enter a new name for a hook, or opens a window if the hook
 -- has choices. If you want to directly set a hook with choices, skipping the
--- window, add "zuzu-direct-set: " to the beginning of `hook_name`.
+-- window, prepend "zuzu-direct-set: " to the beginning of `hook_name`.
 ---@param hook_name string
 require("zuzu").edit_hook(hook_name)
 
@@ -589,6 +709,18 @@ require("zuzu").edit_hooks()
 -- @param hook_name string
 -- @param hook_val string
 require("zuzu").set_hook(hook_name, hook_val)
+
+-- Opens the qflist if it's closed, and closes it if it's open. Also hides 
+-- quickfix-related diagnostics, if they are enabled. If `is_stable` is `true`,
+-- then the cursor will stay in the current buffer. If `is_stable` is `false`
+-- or `nil`, the cursor will move to the quickfix list.
+---@param is_stable boolean?
+require("zuzu").toggle_qflist(is_stable)
+
+-- Moves forward or backwards one item in the quickfix list, with wrap-around,
+-- based on `is_next`.
+---@param is_next boolean
+require("zuzu").qflist_prev_or_next(is_next)
 
 -- Prints the current zuzu verison.
 require("zuzu").version()
@@ -604,7 +736,7 @@ local vim_cmd_diffs = {}
 local last_output_path = require("zuzu.platform").join_path(
 	vim.fn.stdpath("data"),
 	"zuzu",
-	"last.txt"
+	"stdout.txt"
 )
 local count = 10
 
@@ -670,4 +802,7 @@ ZuzuReplace
 ZuzuOverwrite
 ZuzuDelete
 ZuzuHighlight
+ZuzuBackgroundRun
+ZuzuSuccess
+ZuzuFailure
 ```

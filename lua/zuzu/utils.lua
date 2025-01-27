@@ -26,6 +26,16 @@ M.assert = function(expr, errmsg)
 	return expr
 end
 
+---@param tbl table
+---@return table
+M.reverse_table = function(tbl)
+	local new_tbl = {}
+	for _, item in ipairs(tbl) do
+		table.insert(new_tbl, 1, item)
+	end
+	return new_tbl
+end
+
 ---@param str string
 ---@param prefix string
 ---@return boolean
@@ -43,11 +53,42 @@ M.str_ends_with = function(str, suffix)
 end
 
 ---@param path string
+---@return string?
+function M.read_from_path(path)
+	local handle = io.open(path, "r")
+	if not handle then
+		return nil
+	end
+	local text = handle:read("*a")
+	handle:close()
+	return text
+end
+
+---@param path string
 ---@param content string
 function M.write_to_path(path, content)
 	local handle = M.assert(io.open(path, "w"), "Could not open " .. path)
 	M.assert(handle:write(content), "Could not write to " .. path)
 	handle:close()
+end
+
+---@generic T
+---@param tbl T
+---@return T
+M.read_only = function(tbl)
+	local proxy = {}
+	local mt = {
+		__index = tbl,
+		__newindex = function(self)
+			error(
+				(self.__name and (self.__name .. ": ") or "")
+					.. "attempt to update a read-only table",
+				2
+			)
+		end,
+	}
+	setmetatable(proxy, mt)
+	return proxy
 end
 
 ---@param choices string[]

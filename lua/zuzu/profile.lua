@@ -8,6 +8,7 @@ local M = {}
 ---@field [3] string[][] hooks
 ---@field [4] string setup
 ---@field [5] string[] builds
+---@field [6] string? compiler
 
 ---@param root string
 ---@param filetypes string
@@ -15,6 +16,7 @@ local M = {}
 ---@param hooks string[]
 ---@param setup string
 ---@param builds string[]
+---@param compiler string?
 ---@param hook_choices_suffix string
 ---@return Profile
 ---@return string root_name
@@ -25,6 +27,7 @@ function M.new(
 	hooks,
 	setup,
 	builds,
+	compiler,
 	hook_choices_suffix
 )
 	utils.assert(
@@ -116,22 +119,38 @@ function M.new(
 			build:sub(1, 1) ~= "|",
 			'Build script cannot start with "|"'
 		)
+		utils.assert(
+			build:sub(#build, #build) ~= "(",
+			'Build script cannot end with "("'
+		)
 		local name, rest = string.match(
 			build,
-			"^### {{ name: ([%w_-%.]+) }}" .. platform.NEWLINE .. "(.*)$"
+			"^### {{ name: ([%w_%-%.]+) }}" .. platform.NEWLINE .. "(.*)$"
 		)
 		if name then
-			build = string.format("|%s|%s", name, rest)
+			name = ("|%s|"):format(name)
+			build = rest
 		end
+		local build_compiler
+		build_compiler, rest = string.match(
+			build,
+			"^### {{ compiler: ([%w_%-%.]+) }}" .. platform.NEWLINE .. "(.*)$"
+		)
+		if build_compiler then
+			build_compiler = ("(%s("):format(build_compiler)
+			build = rest
+		end
+		build = (name or "") .. build .. (build_compiler or "")
+
 		table.insert(parsed_builds, build)
 	end
-
 	return {
 		filetype_list,
 		depth_value,
 		hook_list,
 		setup,
 		parsed_builds,
+		compiler,
 	},
 		root
 end
@@ -173,6 +192,48 @@ function M.build(profile, build_idx)
 	return M.builds(profile)[build_idx] or platform.NEWLINE
 end
 
+---@param profile Profile
+---@param build_idx integer
+---@return string build_name
+---@return string build_text
+---@return string? build_compiler
+function M.build_info(profile, build_idx)
+	local build = M.build(profile, build_idx)
+	local name = tostring(build_idx)
+	local compiler
+	if build:sub(1, 1) == "|" then
+		name, build = build:match("|(.-)|(.*)")
+	end
+	if build:sub(#build, #build) == "(" then
+		build, compiler = build:match("(.*)%(([^%(]+)%($")
+	end
+	return name, build, compiler
+end
+
+---@param profile Profile
+---@param build_idx integer?
+---@return string?
+function M.compiler(profile, build_idx)
+	local compiler
+	if build_idx and M.builds(profile)[build_idx] then
+		_, _, compiler = M.build_info(profile, build_idx)
+	end
+	return compiler or profile[6]
+end
+
+---@param target_compiler string
+---@param compiler_pairs [string, string][]
+---@return string?
+function M.get_errorformat(target_compiler, compiler_pairs)
+	for _, compiler_pair in ipairs(compiler_pairs) do
+		local compiler = compiler_pair[1]
+		local errorformat = compiler_pair[2]
+		if compiler == target_compiler then
+			return errorformat
+		end
+	end
+end
+
 ---@param profile1 Profile
 ---@param profile2 Profile
 ---@return boolean
@@ -180,6 +241,7 @@ function M.equals(profile1, profile2)
 	return M.depth(profile1) == M.depth(profile2)
 		and M.setup(profile1) == M.setup(profile2)
 		and #M.filetypes(profile1) == #M.filetypes(profile2)
+		and M.compiler(profile1) == M.compiler(profile2)
 		and (function()
 			for i = 1, #M.filetypes(profile1) do
 				if M.filetypes(profile1)[i] ~= M.filetypes(profile2)[i] then
@@ -236,6 +298,7 @@ function M.set(target_profile, src_profile)
 		1,
 		M.builds(target_profile)
 	)
+	target_profile[6] = src_profile[6]
 end
 
 ---@param profile Profile
@@ -260,19 +323,6 @@ end
 ---@return boolean
 function M.accepts(profile, depth, extension)
 	return depth <= M.depth(profile) and M.accepts_ext(profile, extension)
-end
-
----@param profile Profile
----@param build_idx integer
----@return string build_name
----@return string build_text
-function M.build_info(profile, build_idx)
-	local build = M.build(profile, build_idx)
-	if build:sub(1, 1) == "|" then
-		local name, text = build:match("|(.-)|(.*)")
-		return name, text
-	end
-	return tostring(build_idx), build
 end
 
 return M

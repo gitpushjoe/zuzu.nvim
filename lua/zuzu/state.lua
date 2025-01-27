@@ -23,9 +23,12 @@ local M = {}
 ---@field atlas Atlas
 ---@field hooks HookPair[]
 ---@field profile Profile?
+---@field compiler string?
 ---@field preferences Preferences
 ---@field build_cache table<string, BuildPair>
 ---@field profile_editor ProfileEditor
+---@field qflist_open boolean
+---@field error_namespace integer
 
 ---@param state State
 ---@return string
@@ -54,6 +57,14 @@ function M.state_write_setup(state)
 end
 
 ---@param state State
+function M.state_write_compiler(state)
+	utils.write_to_path(
+		Preferences.get_compiler_path(state.preferences),
+		state.compiler
+	)
+end
+
+---@param state State
 ---@param build_name string
 ---@param build_text string
 ---@param build_idx integer
@@ -66,16 +77,29 @@ function M.state_write_build(state, build_name, build_text, build_idx)
 				Preferences.get_hooks_path(state.preferences),
 				Preferences.get_setup_path(state.preferences)
 			)
-			.. ("function %s {%s%s%s%s%s}%s%s 2>&1 | tee %s"):format(
+			.. ("function %s {%s%s%s%s%s}%s"):format(
 				state.preferences.zuzu_function_name,
 				platform.NEWLINE,
 				platform.choose(":", ";"), -- no-op
 				platform.NEWLINE,
 				build_text,
 				platform.NEWLINE,
-				platform.NEWLINE,
-				state.preferences.zuzu_function_name,
-				Preferences.get_last_path(state.preferences)
+				platform.NEWLINE
+			)
+			.. platform.choose(
+				(
+					"%s 2> >(tee %s; zuzu_pid1=$!) > >(tee %s; zuzu_pid2=$!)"
+					.. "\nwait $zuzu_pid1\nwait $zuzu_pid2"
+				):format(
+					state.preferences.zuzu_function_name,
+					Preferences.get_last_stderr_path(state.preferences),
+					Preferences.get_last_stdout_path(state.preferences),
+					Preferences.get_last_stderr_path(state.preferences)
+				),
+				("%s 2>&1 | Tee-Object %s"):format(
+					state.preferences.zuzu_function_name,
+					Preferences.get_last_stdout_path(state.preferences)
+				)
 			)
 	)
 	state.build_cache[build_name] = { state.profile, build_idx }
@@ -114,6 +138,18 @@ function M.state_resolve_hooks(state)
 end
 
 ---@param state State
+---@return fun(): nil
+function M.state_write_atlas_function(state)
+	return function()
+		state.build_cache = {}
+		Atlas.atlas_write(
+			state.atlas,
+			Preferences.get_atlas_path(state.preferences)
+		)
+	end
+end
+
+---@param state State
 ---@param path string
 ---@param build_idx integer
 ---@return string? cmd
@@ -123,11 +159,23 @@ function M.state_build(state, path, build_idx)
 	if not profile then
 		return nil, "No applicable build profile found."
 	end
+	if state.qflist_open then
+		M.toggle_qflist(state, true)
+	end
+
 	state.profile = profile
 	local hooks_is_dirty = M.state_resolve_hooks(state)
 	if hooks_is_dirty then
 		M.state_write_hooks(state)
 	end
+
+	local compiler = Profile.compiler(profile, build_idx) or ""
+	local compiler_is_dirty = compiler ~= state.compiler
+	state.compiler = compiler
+	if compiler_is_dirty then
+		M.state_write_compiler(state)
+	end
+
 	local build_name, build_text = Profile.build_info(profile, build_idx)
 	local build = state.build_cache[build_name]
 	local build_file_is_dirty = not (
@@ -135,10 +183,12 @@ function M.state_build(state, path, build_idx)
 		and build[1] == profile
 		and build[2] == build_idx
 	)
+
 	if build_file_is_dirty then
 		M.state_write_setup(state)
 		M.state_write_build(state, build_name, build_text, build_idx)
 	end
+
 	return platform.choose("source ", ". ")
 		.. Preferences.get_build_path(state.preferences, build_name)
 end
@@ -171,24 +221,46 @@ function M.state_edit_most_applicable_profile(state, path)
 end
 
 ---@param state State
-function M.state_edit_all_profiles(state)
+---@param path string
+function M.state_edit_all_profiles(state, path)
 	local profile_map = {}
-	for root, profiles in pairs(state.atlas) do
+	local id_order = {}
+	local all_roots = {}
+	for root in pairs(state.atlas) do
+		table.insert(all_roots, root)
+	end
+	table.sort(all_roots)
+	local current_profile = Atlas.resolve_profile(state.atlas, path)
+	local current_id
+	for _, root in ipairs(all_roots) do
+		local profiles = state.atlas[root]
 		for _, profile in ipairs(profiles) do
-			profile_map[ProfileMap.get_id(root, profile)] = profile
+			local id = ProfileMap.get_id(root, profile)
+			profile_map[id] = profile
+			if profile ~= current_profile then
+				table.insert(id_order, id)
+			else
+				current_id = id
+			end
 		end
 	end
-	ProfileEditor.editor_open(state.profile_editor, profile_map, true)
+	if current_id then
+		table.insert(id_order, current_id)
+	end
+	ProfileEditor.editor_open(state.profile_editor, profile_map, true, id_order)
 end
 
 ---@param state State
 ---@param path string
 function M.state_edit_all_applicable_profiles(state, path)
 	local profile_map = {}
+	local id_order = {}
 	for profile, root in Atlas.resolve_profile_generator(state.atlas, path) do
-		profile_map[ProfileMap.get_id(root, profile)] = profile
+		local id = ProfileMap.get_id(root, profile)
+		profile_map[id] = profile
+		table.insert(id_order, 1, id)
 	end
-	ProfileEditor.editor_open(state.profile_editor, profile_map, true)
+	ProfileEditor.editor_open(state.profile_editor, profile_map, true, id_order)
 end
 
 ---@param state State
@@ -323,11 +395,7 @@ foreach ($item in $array) {
 		print("\nUpdated hook to: " .. input)
 		local hooks = Profile.hooks(profile)
 		hooks[hook_idx][2] = input
-		state.build_cache = {}
-		Atlas.atlas_write(
-			state.atlas,
-			Preferences.get_atlas_path(state.preferences)
-		)
+		M.state_write_atlas_function(state)()
 	end)
 end
 
@@ -344,17 +412,128 @@ M.state_set_hook = function(state, path, hook_name, hook_val)
 	for _, hook_pair in ipairs(Profile.hooks(profile)) do
 		if hook_pair[1] == hook_name then
 			hook_pair[2] = tostring(hook_val)
-			state.build_cache = {}
 			print("Updated hook to: " .. hook_val)
-			Atlas.atlas_write(
-				state.atlas,
-				Preferences.get_atlas_path(state.preferences)
-			)
+			M.state_write_atlas_function(state)()
 			return
 		end
 	end
 
 	utils.error(('Could not find hook "%s"'):format(hook_name))
+end
+
+---@param state State
+---@param is_stable boolean
+M.toggle_qflist = function(state, is_stable)
+	utils.assert(
+		vim.api.nvim_get_current_buf()
+			~= (state.profile_editor.state or {}).buf_id,
+		"Cannot toggle_qflist in profile editor"
+	)
+
+	for _, diagnostic in ipairs(vim.diagnostic.get(0)) do
+		if diagnostic.source == "zuzu" then
+			vim.diagnostic.reset(state.error_namespace)
+		end
+	end
+	if state.qflist_open then
+		vim.cmd("cclose")
+		state.qflist_open = false
+		return
+	end
+
+	local compiler = utils.read_from_path(
+		Preferences.get_compiler_path(state.preferences) or ""
+	)
+	compiler = utils.assert(
+		compiler ~= "" and compiler or nil,
+		"No compiler registered for last build."
+	)
+
+	local errorformat =
+		Profile.get_errorformat(compiler, state.preferences.compilers)
+
+	if errorformat then
+		vim.opt.errorformat = errorformat
+	else
+		vim.cmd("compiler " .. compiler)
+	end
+
+	local handle = io.open(Preferences.get_last_stderr_path(state.preferences))
+	local text = handle and handle:read("*a") or ""
+	if handle then
+		handle:close()
+	end
+	if #text == 0 then
+		vim.notify("zuzu: No errors!")
+		return
+	end
+
+	vim.cmd("cgetfile " .. Preferences.get_last_stderr_path(state.preferences))
+
+	if state.preferences.qflist_as_diagnostic then
+		local quickfix_list = vim.fn.getqflist()
+		local diagnostics = {}
+		local diagnostic_idx = 1
+
+		if state.preferences.reverse_qflist_diagnostic_order then
+			quickfix_list = utils.reverse_table(quickfix_list)
+		end
+
+		for _, item in ipairs(quickfix_list) do
+			if item.bufnr ~= 0 then
+				table.insert(diagnostics, {
+					lnum = item.lnum - 1,
+					col = item.col - 1,
+					severity = vim.diagnostic.severity[item.type:lower()]
+						or state.preferences.qflist_diagnostic_error_level,
+					message = ("(#%d) %s"):format(diagnostic_idx, item.text),
+					source = "zuzu",
+				})
+				diagnostic_idx = diagnostic_idx + 1
+			end
+		end
+
+		local buf_id = vim.api.nvim_get_current_buf()
+		vim.diagnostic.set(state.error_namespace, buf_id, diagnostics)
+	end
+
+	vim.cmd("copen")
+	if is_stable then
+		vim.cmd("wincmd k")
+	end
+
+	state.qflist_open = true
+end
+
+---@param state State
+---@param is_next boolean
+M.qflist_prev_or_next = function(state, is_next)
+	utils.assert(
+		vim.api.nvim_get_current_buf()
+			~= (state.profile_editor.state or {}).buf_id,
+		"Cannot shift in qflist in profile editor"
+	)
+
+	if state.preferences.reverse_qflist_diagnostic_order then
+		is_next = not is_next
+	end
+	if not state.qflist_open then
+		M.toggle_qflist(state, true)
+	end
+	if
+		not pcall(function()
+			vim.cmd(is_next and "cnext" or "cprevious")
+		end)
+	then
+		vim.cmd(is_next and "cfirst" or "clast")
+		--- skip comment errors
+		pcall(function()
+			vim.cmd(is_next and "cnext" or "cprevious")
+		end)
+		pcall(function()
+			vim.cmd(is_next and "cprevious" or "cnext")
+		end)
+	end
 end
 
 return M

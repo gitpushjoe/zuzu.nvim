@@ -11,22 +11,34 @@ local M = {}
 ---@field edit_all_applicable_profiles string
 ---@field edit_all_profiles string
 ---@field edit_hooks string
+---@field qflist_prev string
+---@field qflist_next string
+---@field toggle_qflist string
+---@field stable_toggle_qflist string
 
 ---@class (exact) PathPreferences
 ---@field root string
 ---@field atlas_filename string
----@field last_output_filename string
+---@field last_stdout_filename string
+---@field last_stderr_filename string
+---@field compiler_filename string
 
 ---@class (exact) Preferences
 ---@field build_count integer
 ---@field display_strategy_count integer
----@field display_strategies (fun(string): nil)[]
+---@field display_strategies (fun(cmd: string, profile: Profile, build_idx: integer, last_stdout_path: string, last_stderr_path: string): nil)[]
 ---@field path PathPreferences
 ---@field core_hooks ({[1]: string, [2]: fun(): string})[]
 ---@field zuzu_function_name string
 ---@field keymaps Keymaps
 ---@field prompt_on_simple_edits boolean
+---@field reverse_qflist_diagnostic_order boolean
+---@field qflist_as_diagnostic boolean
+---@field qflist_diagnostic_error_level string
+---@field write_on_run boolean
 ---@field hook_choices_suffix string
+---@field fold_profiles_in_editor boolean
+---@field compilers [string, string][]
 
 ---@param hook_name string
 ---@return string
@@ -37,15 +49,16 @@ end
 ---@type Preferences
 M.DEFAULT = {
 	build_count = 4,
-	display_strategy_count = 3,
+	display_strategy_count = 4,
 	keymaps = {
 		build = {
 			{ "zu", "ZU", "zU", "Zu" },
 			{ "zv", "ZV", "zV", "Zv" },
 			{ "zs", "ZS", "zS", "Zs" },
+			{ "zb", "ZB", "zB", "Zb" },
 		},
 		reopen = {
-			"z,",
+			"z.",
 			'z"',
 			"z:",
 		},
@@ -55,16 +68,23 @@ M.DEFAULT = {
 		edit_all_applicable_profiles = "z?",
 		edit_all_profiles = "z*",
 		edit_hooks = "zh",
+		qflist_prev = "z[",
+		qflist_next = "z]",
+		stable_toggle_qflist = "z\\",
+		toggle_qflist = "z|",
 	},
 	display_strategies = {
 		require("zuzu.display_strategies").command,
 		require("zuzu.display_strategies").split_right,
 		require("zuzu.display_strategies").split_below,
+		require("zuzu.display_strategies").background,
 	},
 	path = {
 		root = platform.join_path(tostring(vim.fn.stdpath("data")), "zuzu"),
 		atlas_filename = "atlas.json",
-		last_output_filename = "last.txt",
+		last_stdout_filename = "stdout.txt",
+		last_stderr_filename = "stderr.txt",
+		compiler_filename = "compiler.txt",
 	},
 	core_hooks = {
 		{ env_var_syntax("file"), require("zuzu.hooks").file },
@@ -76,6 +96,22 @@ M.DEFAULT = {
 	zuzu_function_name = "zuzu_cmd",
 	prompt_on_simple_edits = false,
 	hook_choices_suffix = "__c",
+	compilers = {
+		-- https://vi.stackexchange.com/a/44620
+		{ "python3", '%A %#File "%f"\\, line %l\\, in %o,%Z %#%m' },
+		{ "lua", "%E%\\\\?lua:%f:%l:%m,%E%f:%l:%m" },
+		-- https://github.com/felixge/vim-nodejs-errorformat/blob/master/ftplugin/javascript.vim
+		-- Note: This will also work for bun.
+		{
+			"node",
+			[[%AError: %m,%AEvalError: %m,%ARangeError: %m,%AReferenceError: %m,%ASyntaxError: %m,%ATypeError: %m,%Z%*[\ ]at\ %f:%l:%c,%Z%*[\ ]%m (%f:%l:%c),%*[\ ]%m (%f:%l:%c),%*[\ ]at\ %f:%l:%c,%Z%p^,%A%f:%l,%C%m,%-G%.%#]],
+		},
+	},
+	qflist_as_diagnostic = true,
+	reverse_qflist_diagnostic_order = false,
+	qflist_diagnostic_error_level = "WARN",
+	write_on_run = true,
+	fold_profiles_in_editor = true,
 }
 
 ---@function function_name string
@@ -91,8 +127,8 @@ M.table_join = function(function_name, arg_name, src_table, table)
 	end
 	local is_array = src_table[1] ~= nil
 	if is_array then
-		---assume all lists where the first 2 items are different are 2-tuples
-		local is_tuple = type(src_table[1]) ~= type(src_table[2])
+		---assume all lists of 2 items are 2-tuples
+		local is_tuple = #src_table == 2
 		if is_tuple then
 			err = validate.types(function_name, {
 				{ table[1], type(src_table[1]), arg_name .. "[1]" },
@@ -227,6 +263,12 @@ end
 
 ---@param preferences Preferences
 ---@return string
+function M.get_compiler_path(preferences)
+	return M.join_path(preferences, "compiler" .. platform.EXTENSION)
+end
+
+---@param preferences Preferences
+---@return string
 function M.get_builds_path(preferences)
 	return M.join_path(preferences, "builds")
 end
@@ -240,8 +282,20 @@ end
 
 ---@param preferences Preferences
 ---@return string
-function M.get_last_path(preferences)
-	return M.join_path(preferences, preferences.path.last_output_filename)
+function M.get_last_stdout_path(preferences)
+	return M.join_path(preferences, preferences.path.last_stdout_filename)
+end
+
+---@param preferences Preferences
+---@return string
+function M.get_last_stderr_path(preferences)
+	return M.join_path(
+		preferences,
+		platform.choose(
+			preferences.path.last_stderr_filename,
+			preferences.path.last_stdout_filename
+		)
+	)
 end
 
 ---@param preferences Preferences
@@ -311,6 +365,26 @@ function M.bind_keymaps(preferences)
 		"zuzu: Edit all profiles"
 	)
 	set_keymap(keymaps.edit_hooks, "edit_hooks()", "zuzu: Edit hooks")
+	set_keymap(
+		keymaps.stable_toggle_qflist,
+		"toggle_qflist(true)",
+		"zuzu: Toggle error window"
+	)
+	set_keymap(
+		keymaps.toggle_qflist,
+		"toggle_qflist(false)",
+		"zuzu: Toggle error window"
+	)
+	set_keymap(
+		keymaps.qflist_prev,
+		"qflist_prev_or_next(false)",
+		"zuzu: Toggle error window"
+	)
+	set_keymap(
+		keymaps.qflist_next,
+		"qflist_prev_or_next(true)",
+		"zuzu: Toggle error window"
+	)
 end
 
 return M
