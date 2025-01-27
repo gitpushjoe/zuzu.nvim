@@ -189,7 +189,7 @@ function M.state_build(state, path, build_idx)
 		M.state_write_build(state, build_name, build_text, build_idx)
 	end
 
-	return platform.choose("source ", ". ")
+	return platform.choose("bash ", ". ")
 		.. Preferences.get_build_path(state.preferences, build_name)
 end
 
