@@ -106,6 +106,10 @@ M.DEFAULT = {
 			"node",
 			[[%AError: %m,%AEvalError: %m,%ARangeError: %m,%AReferenceError: %m,%ASyntaxError: %m,%ATypeError: %m,%Z%*[\ ]at\ %f:%l:%c,%Z%*[\ ]%m (%f:%l:%c),%*[\ ]%m (%f:%l:%c),%*[\ ]at\ %f:%l:%c,%Z%p^,%A%f:%l,%C%m,%-G%.%#]],
 		},
+		{
+			"bash",
+			"%E%f: line %l: %m",
+		},
 	},
 	qflist_as_diagnostic = true,
 	reverse_qflist_diagnostic_order = false,
@@ -264,7 +268,7 @@ end
 ---@param preferences Preferences
 ---@return string
 function M.get_compiler_path(preferences)
-	return M.join_path(preferences, "compiler" .. platform.EXTENSION)
+	return M.join_path(preferences, "compiler.txt")
 end
 
 ---@param preferences Preferences
@@ -368,22 +372,22 @@ function M.bind_keymaps(preferences)
 	set_keymap(
 		keymaps.stable_toggle_qflist,
 		"toggle_qflist(true)",
-		"zuzu: Toggle error window"
+		"zuzu: Toggle qflist and keep cursor"
 	)
 	set_keymap(
 		keymaps.toggle_qflist,
 		"toggle_qflist(false)",
-		"zuzu: Toggle error window"
+		"zuzu: Toggle qflist and jump to qflist"
 	)
 	set_keymap(
 		keymaps.qflist_prev,
 		"qflist_prev_or_next(false)",
-		"zuzu: Toggle error window"
+		"zuzu: Jump to prev item in qflist"
 	)
 	set_keymap(
 		keymaps.qflist_next,
 		"qflist_prev_or_next(true)",
-		"zuzu: Toggle error window"
+		"zuzu: Jump to next item in qflist"
 	)
 end
 

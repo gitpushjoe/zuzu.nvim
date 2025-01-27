@@ -612,7 +612,7 @@ python3 -m unittest discover -s tests
 
 #### Registering a New Compiler
 
-If the compiler you use isn't available under `:compiler` (or you dislike its implementation), you can register it. Simply add the name of the compiler and its [errorformat](https://neovim.io/doc/user/quickfix.html#errorformat) under the `compilers` parameter in `setup()`. errorformats for Python3, lua, and node have been provided, but if you have found/written an errorformat for your language, feel free to submit a pull request.
+If the compiler you use isn't available under `:compiler` (or you dislike its implementation), you can register it. Simply add the name of the compiler and its [errorformat](https://neovim.io/doc/user/quickfix.html#errorformat) under the `compilers` parameter in `setup()`. errorformats for Python3, lua, node, and bash have been provided, but if you have found/written an errorformat for your language, feel free to submit a pull request.
 
 ## 🖥 Display Strategies
 
