@@ -198,7 +198,7 @@ require("zuzu").setup({
 |`keymaps.new_profile`|Creates a new profile. Sets the root to the current file and sets the depth to 0.
 |`keymaps.new_project_profile`|Creates a new profile. Sets the root to the *directory* of the current file and sets the depth to -1 (any depth).
 |`keymaps.edit_profile`|Shows the profile for the current file (the most applicable profile).
-|`keymaps.edit_all_applicable_profiles`|Shows all applicable profiles for the current file. Note that these profiles are *not* shown in any order.
+|`keymaps.edit_all_applicable_profiles`|Shows all applicable profiles for the current file, in order from least applicable to most.
 |`keymaps.edit_all_profiles`|Shows all profiles.
 |`keymaps.edit_hooks`|Opens an interactive menu for updating a [hook](#-hooks).
 |`keymaps.qflist_prev`|Opens the quickfix list if it's closed, and jumps to the previous error (see [:cprevious](https://neovim.io/doc/user/quickfix.html#%3Acprevious)).
@@ -399,7 +399,7 @@ and then save the profile with `:w`, you can press `zu` to run the first build c
 
 ### ✏  Editing Profiles
 
-To edit a profile after it's been created, you can use `z=` to open it. This will open the [most applicable profile](#-profile-resolution) for the currently-open file. `z?` will open all profiles that apply to the curent file, but they (currently) won't be listed in any particular order. `z*` will open all profiles. To apply your changes, use `:w`.
+To edit a profile after it's been created, you can use `z=` to open it. This will open the [most applicable profile](#-profile-resolution) for the currently-open file. `z?` will open all profiles that apply to the current file, in order from least applicable to most. `z*` will open all profiles. To apply your changes, use `:w`.
 
 <br/>
 
