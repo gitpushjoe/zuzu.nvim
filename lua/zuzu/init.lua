@@ -30,7 +30,10 @@ M.run = function(build_idx, display_strategy_idx)
 		type(display_strategy_idx) == type(1),
 		"`display_strategy_idx` should be an integer"
 	)
-	if state.preferences.write_on_run then
+	if
+		state.preferences.write_on_run
+		and vim.api.nvim_buf_get_option(0, "modified")
+	then
 		vim.cmd("write")
 	end
 	local cmd =
@@ -98,9 +101,9 @@ M.set_hook = function(hook_name, hook_val)
 	State.state_set_hook(state, validate_path(), hook_name, hook_val)
 end
 
----@param is_stable boolean
+---@param is_stable boolean?
 M.toggle_qflist = function(is_stable)
-	State.toggle_qflist(state, is_stable)
+	State.toggle_qflist(state, is_stable or false)
 end
 
 ---@param is_next boolean

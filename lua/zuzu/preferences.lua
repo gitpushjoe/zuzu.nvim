@@ -97,12 +97,18 @@ M.DEFAULT = {
 	prompt_on_simple_edits = false,
 	hook_choices_suffix = "__c",
 	compilers = {
-		--- https://vi.stackexchange.com/a/44620
+		-- https://vi.stackexchange.com/a/44620
 		{ "python3", '%A %#File "%f"\\, line %l\\, in %o,%Z %#%m' },
 		{ "lua", "%E%\\\\?lua:%f:%l:%m,%E%f:%l:%m" },
+		-- https://github.com/felixge/vim-nodejs-errorformat/blob/master/ftplugin/javascript.vim
+		-- Note: This will also work for bun.
+		{
+			"node",
+			[[%AError: %m,%AEvalError: %m,%ARangeError: %m,%AReferenceError: %m,%ASyntaxError: %m,%ATypeError: %m,%Z%*[\ ]at\ %f:%l:%c,%Z%*[\ ]%m (%f:%l:%c),%*[\ ]%m (%f:%l:%c),%*[\ ]at\ %f:%l:%c,%Z%p^,%A%f:%l,%C%m,%-G%.%#]],
+		},
 	},
-	reverse_qflist_diagnostic_order = true,
 	qflist_as_diagnostic = true,
+	reverse_qflist_diagnostic_order = false,
 	qflist_diagnostic_error_level = "WARN",
 	write_on_run = true,
 	fold_profiles_in_editor = true,

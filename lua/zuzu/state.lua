@@ -87,8 +87,12 @@ function M.state_write_build(state, build_name, build_text, build_idx)
 				platform.NEWLINE
 			)
 			.. platform.choose(
-				("%s > >(tee %s) 2> >(tee %s >&2)"):format(
+				(
+					"%s 2> >(tee %s; zuzu_pid1=$!) > >(tee %s; zuzu_pid2=$!)"
+					.. "\nwait $zuzu_pid1\nwait $zuzu_pid2"
+				):format(
 					state.preferences.zuzu_function_name,
+					Preferences.get_last_stderr_path(state.preferences),
 					Preferences.get_last_stdout_path(state.preferences),
 					Preferences.get_last_stderr_path(state.preferences)
 				),
