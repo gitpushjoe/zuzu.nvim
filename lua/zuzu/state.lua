@@ -86,15 +86,15 @@ function M.state_write_build(state, build_name, build_text, build_idx)
 				platform.NEWLINE,
 				platform.NEWLINE
 			)
-			.. (state.preferences.reflect and platform.choose(
-				("declare -f -p %s | envsubst | sed 's/^    //' | sed '1,3d;$d'\n"):format(
-					state.preferences.zuzu_function_name
-				),
-				(
-					"$content = Get-Content function:%s | Select-Object -Skip 3 | Select-Object -SkipLast 1)"
-					.. "\n$ExecutionContext.InvokeCommand.ExpandString($content)"
-				):format(state.preferences.zuzu_function_name)
-			) or "")
+			.. (state.preferences.reflect and platform
+				.choose(
+					"declare -f -p %s | envsubst | sed 's/^    //' | sed '1,3d;$d'\n",
+					"$content = "
+						.. "(Get-Content function:%s | Select-Object -Skip 3 | Select-Object -SkipLast 1)"
+						.. " -replace '^\\s{4}',''"
+						.. "\r\n$ExecutionContext.InvokeCommand.ExpandString($content)\r\n"
+				)
+				:format(state.preferences.zuzu_function_name) or "")
 			.. platform.choose(
 				(
 					"%s 2> >(tee %s; zuzu_pid1=$!) > >(tee %s; zuzu_pid2=$!)"
