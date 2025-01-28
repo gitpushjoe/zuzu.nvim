@@ -77,12 +77,11 @@ function M.state_write_build(state, build_name, build_text, build_idx)
 				Preferences.get_hooks_path(state.preferences),
 				Preferences.get_setup_path(state.preferences)
 			)
-			.. ("function %s {%s%s%s%s}%s"):format(
+			.. ("function %s {%s%s%s}%s"):format(
 				state.preferences.zuzu_function_name,
-				platform.NEWLINE,
-				platform.choose(":\n", ""), -- no-op
+				platform.choose("\n:\n", ""), -- no-op
 				build_text,
-				platform.NEWLINE,
+				platform.choose("\n", ""), -- no trailing newline needed on Powershell
 				platform.NEWLINE
 			)
 			.. (state.preferences.reflect and platform
