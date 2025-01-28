@@ -84,14 +84,17 @@ function M.state_write_build(state, build_name, build_text, build_idx)
 				platform.choose("\n", ""), -- no trailing newline needed on Powershell
 				platform.NEWLINE
 			)
-			.. (state.preferences.reflect and platform
+			.. (state.preferences.reflect and (platform
 				.choose(
 					"declare -f -p %s | envsubst | sed 's/^    //' | sed '1,3d;$d'\n",
 					"$content = "
 						.. "(Get-Content function:%s) -replace '^\\s{4}',''"
 						.. "\r\n$ExecutionContext.InvokeCommand.ExpandString($content)\r\n"
 				)
-				:format(state.preferences.zuzu_function_name) or "")
+				:format(state.preferences.zuzu_function_name) .. (state.preferences.newline_after_reflect and platform.choose(
+				"echo\n",
+				'Write-Output "`n"\r\n'
+			) or "")) or "")
 			.. platform.choose(
 				(
 					"%s 2> >(tee %s; zuzu_pid1=$!) > >(tee %s; zuzu_pid2=$!)"

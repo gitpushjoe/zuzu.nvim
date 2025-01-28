@@ -39,6 +39,7 @@ local M = {}
 ---@field hook_choices_suffix string
 ---@field fold_profiles_in_editor boolean
 ---@field reflect boolean
+---@field newline_after_reflect boolean
 ---@field compilers [string, string][]
 
 ---@param hook_name string
@@ -118,6 +119,7 @@ M.DEFAULT = {
 	write_on_run = true,
 	fold_profiles_in_editor = true,
 	reflect = false,
+	newline_after_reflect = true,
 }
 
 ---@function function_name string
