@@ -38,6 +38,7 @@ local M = {}
 ---@field write_on_run boolean
 ---@field hook_choices_suffix string
 ---@field fold_profiles_in_editor boolean
+---@field reflect boolean
 ---@field compilers [string, string][]
 
 ---@param hook_name string
@@ -116,6 +117,7 @@ M.DEFAULT = {
 	qflist_diagnostic_error_level = "WARN",
 	write_on_run = true,
 	fold_profiles_in_editor = true,
+	reflect = false,
 }
 
 ---@function function_name string
