@@ -5,6 +5,7 @@ local ProfileEditor = require("zuzu.profile_editor")
 local Preferences = require("zuzu.preferences")
 local ProfileMap = require("zuzu.profile_map")
 local utils = require("zuzu.utils")
+local colors = require("zuzu.colors")
 local M = {}
 
 ---@class (exact) BuildPair
@@ -86,12 +87,26 @@ function M.state_write_build(state, build_name, build_text, build_idx)
 			)
 			.. (state.preferences.reflect and (platform
 				.choose(
-					"declare -f -p %s | envsubst | sed 's/^    //' | sed '1,3d;$d'\n",
-					"$content = "
-						.. "(Get-Content function:%s) -replace '^\\s{4}',''"
-						.. "\r\n$ExecutionContext.InvokeCommand.ExpandString($content)\r\n"
+					[[
+if [ "$TERM" != "dumb" ]; then
+	echo -e -n "%s"
+fi
+declare -f -p %s | envsubst | sed 's/^    //' | sed '1,3d;$d'
+if [ "$TERM" != "dumb" ]; then
+	echo -e -n "%s"
+fi
+]],
+					[[
+$content = (Get-Content function:%s) -replace '^\\s{4}',''"
+$reflection = ExecutionContext.InvokeCommand.ExpandString($content)"
+Write-host $reflection -ForegroundColor %s
+]]
 				)
-				:format(state.preferences.zuzu_function_name) .. (state.preferences.newline_after_reflect and platform.choose(
+				:format(
+					state.preferences.colors.reflect,
+					state.preferences.zuzu_function_name,
+					colors.reset
+				) .. (state.preferences.newline_after_reflect and platform.choose(
 				"echo\n",
 				'Write-Output "`n"\r\n'
 			) or "")) or "")

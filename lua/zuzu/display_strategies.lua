@@ -4,7 +4,7 @@ local Platform = require("zuzu.platform")
 local M = {}
 
 M.command = function(cmd)
-	vim.cmd("!" .. cmd)
+	vim.cmd("!TERM=dumb " .. cmd)
 end
 
 M.split_right = function(cmd)

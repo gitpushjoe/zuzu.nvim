@@ -1,5 +1,6 @@
 local platform = require("zuzu.platform")
 local validate = require("zuzu.validate")
+local colors = require("zuzu.colors")
 local M = {}
 
 ---@class (exact) Keymaps
@@ -23,6 +24,10 @@ local M = {}
 ---@field last_stderr_filename string
 ---@field compiler_filename string
 
+---@class (exact) Colors
+---@field reopen_stderr string
+---@field reflect string
+
 ---@class (exact) Preferences
 ---@field build_count integer
 ---@field display_strategy_count integer
@@ -31,6 +36,7 @@ local M = {}
 ---@field core_hooks ({[1]: string, [2]: fun(): string})[]
 ---@field zuzu_function_name string
 ---@field keymaps Keymaps
+---@field colors Colors
 ---@field prompt_on_simple_edits boolean
 ---@field reverse_qflist_diagnostic_order boolean
 ---@field qflist_as_diagnostic boolean
@@ -94,6 +100,10 @@ M.DEFAULT = {
 		{ env_var_syntax("parent"), require("zuzu.hooks").parent_directory },
 		{ env_var_syntax("base"), require("zuzu.hooks").base },
 		{ env_var_syntax("filename"), require("zuzu.hooks").filename },
+	},
+	colors = {
+		reopen_stderr = colors.red,
+		reflect = colors.yellow,
 	},
 	zuzu_function_name = "zuzu_cmd",
 	prompt_on_simple_edits = false,
@@ -200,8 +210,12 @@ M.table_join = function(function_name, arg_name, src_table, table)
 		if err then
 			return nil, err
 		end
-		table[key] = table[key] or src_table[key]
-		src_table[key] = table[key] or src_table[key]
+		if table[key] == nil then
+			table[key] = src_table[key]
+			src_table[key] = table[key]
+		else
+			src_table[key] = table[key]
+		end
 	end
 	return src_table
 end
