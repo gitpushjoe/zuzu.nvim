@@ -171,6 +171,7 @@ M.table_join = function(function_name, arg_name, src_table, table)
 			end
 			src_table[i] = table[i]
 		end
+		return src_table
 	end
 	err = validate.types(function_name, { { table, "table", arg_name } })
 	if err then
@@ -196,8 +197,12 @@ M.table_join = function(function_name, arg_name, src_table, table)
 		if err then
 			return nil, err
 		end
-		table[key] = table[key] or src_table[key]
-		src_table[key] = table[key] or src_table[key]
+		if table[key] == nil then
+			table[key] = src_table[key]
+			src_table[key] = table[key]
+		else
+			src_table[key] = table[key]
+		end
 	end
 	return src_table
 end
