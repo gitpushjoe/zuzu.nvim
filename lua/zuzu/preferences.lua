@@ -28,10 +28,12 @@ local M = {}
 ---@field reopen_stderr string
 ---@field reflect string
 
+---@alias DisplayStrategyFunc fun(cmd: string, profile: Profile, build_idx: integer, last_stdout_path: string, last_stderr_path: string, is_reopen?: boolean): integer?
+
 ---@class (exact) Preferences
 ---@field build_count integer
 ---@field display_strategy_count integer
----@field display_strategies (fun(cmd: string, profile: Profile, build_idx: integer, last_stdout_path: string, last_stderr_path: string): nil)[]
+---@field display_strategies DisplayStrategyFunc[]
 ---@field path PathPreferences
 ---@field core_hooks ({[1]: string, [2]: fun(): string})[]
 ---@field zuzu_function_name string
@@ -103,7 +105,7 @@ M.DEFAULT = {
 		{ env_var_syntax("filename"), require("zuzu.hooks").filename },
 	},
 	colors = {
-		reopen_stderr = colors.red,
+		reopen_stderr = colors.bright_red,
 		reflect = colors.yellow,
 	},
 	zuzu_function_name = "zuzu_cmd",

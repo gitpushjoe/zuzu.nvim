@@ -7,11 +7,23 @@ M.command = function(cmd)
 	vim.cmd("!" .. cmd)
 end
 
-M.split_right = function(cmd)
+---@type DisplayStrategyFunc
+---@return integer? buf_id
+M.split_right = function(cmd, _, _, _, _, is_reopen)
+	if is_reopen then
+		vim.cmd("vertical rightbelow split | enew")
+		return vim.api.nvim_get_current_buf()
+	end
 	vim.cmd("vertical rightbelow split | terminal " .. cmd)
 end
 
-M.split_below = function(cmd)
+---@type DisplayStrategyFunc
+---@return integer? buf_id
+M.split_below = function(cmd, _, _, _, _, is_reopen)
+	if is_reopen then
+		vim.cmd("horizontal rightbelow split | enew")
+		return vim.api.nvim_get_current_buf()
+	end
 	vim.cmd("horizontal rightbelow split | terminal " .. cmd)
 end
 

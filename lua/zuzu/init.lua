@@ -2,6 +2,7 @@ local Atlas = require("zuzu.atlas")
 local Preferences = require("zuzu.preferences")
 local State = require("zuzu.state")
 local utils = require("zuzu.utils")
+local colors = require("zuzu.colors")
 local platform = require("zuzu.platform")
 local M = {}
 
@@ -48,7 +49,9 @@ M.run = function(build_idx, display_strategy_idx)
 end
 
 M.reopen = function(display_strategy_idx)
-	preferences.display_strategies[display_strategy_idx](
+	local last_stdout_path = Preferences.get_last_stdout_path(preferences)
+	local last_stderr_path = Preferences.get_last_stderr_path(preferences)
+	local reopen_buf_id = preferences.display_strategies[display_strategy_idx](
 		("%s;cat %s"):format(
 			preferences.newline_after_reopen and "echo" or "",
 			Preferences.get_last_stdout_path(preferences)
@@ -64,9 +67,66 @@ M.reopen = function(display_strategy_idx)
 			utils.assert(Atlas.resolve_profile(state.atlas, validate_path()))
 		),
 		0,
-		Preferences.get_last_stdout_path(preferences),
-		Preferences.get_last_stderr_path(preferences)
+		last_stdout_path,
+		last_stderr_path,
+		true
 	)
+	if not reopen_buf_id then
+		return
+	end
+
+	---@param str string
+	---@return string[]
+	local split_lines = function(str)
+		local lines = {}
+		for line in str:gmatch("([^\n]*)\n?") do
+			table.insert(lines, line)
+		end
+		return lines
+	end
+
+	--- TODO: handle windows
+	--- TODO: handle newline_after_reopen
+	local stdout_lines = split_lines(
+		utils.assert(
+			utils.read_from_path(last_stdout_path),
+			"No last stdout file found."
+		)
+	)
+
+	vim.api.nvim_buf_set_lines(reopen_buf_id, 0, -1, false, stdout_lines)
+
+	local stderr_lines = split_lines(
+		utils.assert(
+			utils.read_from_path(last_stderr_path),
+			"No last stderr file found."
+		)
+	)
+
+	local line_count = vim.api.nvim_buf_line_count(reopen_buf_id)
+
+	print(colors.unix2ps(preferences.colors.reopen_stderr))
+	vim.cmd(
+		([[highlight ZuzuReopenStderr guifg=%s]]):format(
+			colors.unix2ps(preferences.colors.reopen_stderr)
+		)
+	)
+	for i, line in ipairs(stderr_lines) do
+		vim.api.nvim_buf_set_lines(reopen_buf_id, -1, -1, false, { line })
+		vim.api.nvim_buf_add_highlight(
+			reopen_buf_id,
+			-1,
+			"ZuzuReopenStderr",
+			line_count + i - 1,
+			0,
+			-1
+		)
+	end
+
+	vim.bo.readonly = true
+	vim.api.nvim_set_option_value("buftype", "acwrite", { buf = reopen_buf_id })
+	vim.api.nvim_set_option_value("modified", false, { buf = reopen_buf_id })
+	vim.api.nvim_set_option_value("modifiable", false, { buf = reopen_buf_id })
 end
 
 M.new_profile = function()
