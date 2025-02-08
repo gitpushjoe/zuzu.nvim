@@ -49,6 +49,7 @@ local M = {}
 ---@field reflect boolean
 ---@field newline_after_reflect boolean
 ---@field newline_after_reopen boolean
+---@field enter_closes_reopen_buffer boolean
 ---@field compilers [string, string][]
 
 ---@param hook_name string
@@ -134,6 +135,7 @@ M.DEFAULT = {
 	reflect = false,
 	newline_after_reflect = true,
 	newline_after_reopen = true,
+	enter_closes_reopen_buffer = true,
 }
 
 ---@function function_name string

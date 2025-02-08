@@ -95,6 +95,15 @@ M.reopen = function(display_strategy_idx)
 	)
 
 	vim.api.nvim_buf_set_lines(reopen_buf_id, 0, -1, false, stdout_lines)
+	if preferences.enter_closes_reopen_buffer then
+		vim.api.nvim_buf_set_keymap(
+			reopen_buf_id,
+			"n",
+			"<Enter>",
+			":bd!<CR>",
+			{ noremap = true, silent = true }
+		)
+	end
 
 	local stderr_lines = split_lines(
 		utils.assert(
