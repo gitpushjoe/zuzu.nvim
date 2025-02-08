@@ -49,13 +49,15 @@ end
 
 M.reopen = function(display_strategy_idx)
 	preferences.display_strategies[display_strategy_idx](
-		"cat "
-			.. Preferences.get_last_stdout_path(preferences)
+		("%s;cat %s"):format(
+			preferences.newline_after_reopen and "echo" or "",
+			Preferences.get_last_stdout_path(preferences)
+		)
 			.. (
 				platform.PLATFORM ~= "win"
-					and " && echo -e '\\033[31m' && " .. "cat " .. Preferences.get_last_stderr_path(
-						preferences
-					) .. " && echo -n -e '\\033[0m'"
+					and (";[ -t 1 ]&&echo -en '\\033[31m';cat %s;[ -t 1 ]&&echo -en '\\033[0m'"):format(
+						Preferences.get_last_stderr_path(preferences)
+					)
 				or ""
 			),
 		utils.read_only(

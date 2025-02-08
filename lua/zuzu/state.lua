@@ -88,13 +88,9 @@ function M.state_write_build(state, build_name, build_text, build_idx)
 			.. (state.preferences.reflect and (platform
 				.choose(
 					[[
-if [ "$TERM" != "dumb" ]; then
-	echo -e -n "%s"
-fi
+[ -t 1 ] && echo -e -n "%s"
 declare -f -p %s | envsubst | sed 's/^    //' | sed '1,3d;$d'
-if [ "$TERM" != "dumb" ]; then
-	echo -e -n "%s"
-fi
+[ -t 1 ] && echo -e -n "%s"
 ]],
 					[[
 $content = (Get-Content function:%s) -replace '^\\s{4}',''"
