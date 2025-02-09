@@ -23,6 +23,7 @@ local M = {}
 ---@field last_stdout_filename string
 ---@field last_stderr_filename string
 ---@field compiler_filename string
+---@field reflect_filename string
 
 ---@class (exact) Colors
 ---@field reopen_stderr string
@@ -48,9 +49,10 @@ local M = {}
 ---@field fold_profiles_in_editor boolean
 ---@field reflect boolean
 ---@field newline_after_reflect boolean
----@field newline_after_reopen boolean
+---@field newline_before_reopen boolean
 ---@field enter_closes_reopen_buffer boolean
 ---@field compilers [string, string][]
+---@field reopen_reflect boolean
 
 ---@param hook_name string
 ---@return string
@@ -87,9 +89,18 @@ M.DEFAULT = {
 	},
 	display_strategies = {
 		require("zuzu.display_strategies").command,
-		require("zuzu.display_strategies").split_right,
-		require("zuzu.display_strategies").split_below,
-		require("zuzu.display_strategies").background,
+		require("zuzu.display_strategies").split_terminal(
+			"vertical rightbelow",
+			true
+		),
+		require("zuzu.display_strategies").split_terminal(
+			"horizontal rightbelow",
+			true
+		),
+		require("zuzu.display_strategies").background(
+			--- Delay between each elapsed time update in milliseconds
+			1000 / 8
+		),
 	},
 	path = {
 		root = platform.join_path(tostring(vim.fn.stdpath("data")), "zuzu"),
@@ -97,6 +108,7 @@ M.DEFAULT = {
 		last_stdout_filename = "stdout.txt",
 		last_stderr_filename = "stderr.txt",
 		compiler_filename = "compiler.txt",
+		reflect_filename = "reflect.txt",
 	},
 	core_hooks = {
 		{ env_var_syntax("file"), require("zuzu.hooks").file },
@@ -107,7 +119,7 @@ M.DEFAULT = {
 	},
 	colors = {
 		reopen_stderr = colors.bright_red,
-		reflect = colors.yellow,
+		reflect = colors.bright_yellow,
 	},
 	zuzu_function_name = "zuzu_cmd",
 	prompt_on_simple_edits = false,
@@ -134,8 +146,9 @@ M.DEFAULT = {
 	fold_profiles_in_editor = true,
 	reflect = false,
 	newline_after_reflect = true,
-	newline_after_reopen = true,
+	newline_before_reopen = false,
 	enter_closes_reopen_buffer = true,
+	reopen_reflect = true,
 }
 
 ---@function function_name string
@@ -292,7 +305,13 @@ end
 ---@param preferences Preferences
 ---@return string
 function M.get_compiler_path(preferences)
-	return M.join_path(preferences, "compiler.txt")
+	return M.join_path(preferences, preferences.path.compiler_filename)
+end
+
+---@param preferences Preferences
+---@return string
+function M.get_reflect_path(preferences)
+	return M.join_path(preferences, preferences.path.reflect_filename)
 end
 
 ---@param preferences Preferences

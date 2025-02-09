@@ -88,9 +88,9 @@ function M.state_write_build(state, build_name, build_text, build_idx)
 			.. (state.preferences.reflect and (platform
 				.choose(
 					[[
-[ -t 1 ] && echo -e -n "%s"
-declare -f -p %s | envsubst | sed 's/^    //' | sed '1,3d;$d'
-[ -t 1 ] && echo -e -n "%s"
+[ -t 1 ] && echo -en "%s"
+declare -f -p %s | envsubst | sed 's/^    //' | sed '1,3d;$d'%s
+[ -t 1 ] && echo -en "%s"
 ]],
 					[[
 $content = (Get-Content function:%s) -replace '^\\s{4}',''"
@@ -101,6 +101,11 @@ Write-host $reflection -ForegroundColor %s
 				:format(
 					state.preferences.colors.reflect,
 					state.preferences.zuzu_function_name,
+					state.preferences.reopen_reflect
+							and ((" | tee %s"):format(
+								Preferences.get_reflect_path(state.preferences)
+							))
+						or "",
 					colors.reset
 				) .. (state.preferences.newline_after_reflect and platform.choose(
 				"echo\n",
