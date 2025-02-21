@@ -450,6 +450,7 @@ end
 
 ---@param state State
 ---@param is_stable boolean
+---@return true?
 M.toggle_qflist = function(state, is_stable)
 	utils.assert(
 		vim.api.nvim_get_current_buf()
@@ -492,7 +493,7 @@ M.toggle_qflist = function(state, is_stable)
 	end
 	if #text == 0 then
 		vim.notify("zuzu: No errors!")
-		return
+		return true
 	end
 
 	vim.cmd("cgetfile " .. Preferences.get_last_stderr_path(state.preferences))
@@ -545,7 +546,9 @@ M.qflist_prev_or_next = function(state, is_next)
 		is_next = not is_next
 	end
 	if not state.qflist_open then
-		M.toggle_qflist(state, true)
+		if M.toggle_qflist(state, true) then
+			return
+		end
 	end
 	if
 		not pcall(function()
