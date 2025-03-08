@@ -89,20 +89,22 @@ function M.state_write_build(state, build_name, build_text, build_idx)
 				.choose(
 					[[
 [ -t 1 ] && echo -en "%s"
-declare -f -p %s | envsubst | sed 's/^    //' | sed '1,3d;$d'%s
+declare -f -p %s | envsubst | sed 's/^    //' | sed '1,3d;$d' %s
 [ -t 1 ] && echo -en "%s"
 ]],
 					[[
-$content = (Get-Content function:%s) -replace '^\\s{4}',''"
-$reflection = ExecutionContext.InvokeCommand.ExpandString($content)"
-Write-host $reflection -ForegroundColor %s
+$reflectColor = "%s"
+$content = (Get-Content function:%s) -replace '^\s{4}',''
+$reflection = $ExecutionContext.InvokeCommand.ExpandString($content)
+$reflection | Out-File -FilePath %s
+Write-host $reflection -ForegroundColor $reflectColor 
 ]]
 				)
 				:format(
 					state.preferences.colors.reflect,
 					state.preferences.zuzu_function_name,
 					state.preferences.reopen_reflect
-							and ((" | tee %s"):format(
+							and ((platform.choose("| tee %s", "%s")):format(
 								Preferences.get_reflect_path(state.preferences)
 							))
 						or "",

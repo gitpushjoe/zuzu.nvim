@@ -61,7 +61,7 @@ M.reopen = function(display_strategy_idx)
 							preferences.colors.reflect,
 							Preferences.get_reflect_path(preferences)
 						),
-						("gc %s | %% { Write-Host $_ -f %s }"):format(
+						("gc %s | \\%% { Write-Host $_ -f %s }; "):format(
 							Preferences.get_reflect_path(preferences),
 							preferences.colors.reflect
 						)
