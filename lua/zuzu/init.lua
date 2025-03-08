@@ -32,8 +32,7 @@ M.run = function(build_idx, display_strategy_idx)
 		"`display_strategy_idx` should be an integer"
 	)
 	if
-		preferences.write_on_run
-		and vim.api.nvim_buf_get_option(0, "modified")
+		preferences.write_on_run and vim.api.nvim_buf_get_option(0, "modified")
 	then
 		vim.cmd("write")
 	end
@@ -108,8 +107,7 @@ M.reopen = function(display_strategy_idx)
 					Preferences.get_reflect_path(preferences) or ""
 				) or "")
 				.. (
-					preferences.newline_after_reflect and platform.NEWLINE
-					or ""
+					preferences.newline_after_reflect and platform.NEWLINE or ""
 				)
 		)
 		vim.cmd(
