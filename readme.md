@@ -39,7 +39,7 @@ https://github.com/user-attachments/assets/c0d6c5e6-1375-44a3-81f5-7481857f1e4e
   * ### [⚡ blazingly fast (<1ms of overhead)](#-benchmarks)
 	* build scripts are also cached to avoid writing files several times on repeated runs
   * ### 🌐 cross-platform!
-	* supports Windows, Linux, MacOS, and other UNIX-likes
+	* supports Windows, Linux, MacOS, and other UNIX-based systems
  
 
 ## Table of Contents
@@ -60,7 +60,10 @@ https://github.com/user-attachments/assets/c0d6c5e6-1375-44a3-81f5-7481857f1e4e
     * [Quickfix](#-quickfix)
         * [Assigning a Compiler](#assigning-a-compiler)
         * [Registering a New Compiler](#registering-a-new-compiler)
+* [Reflect](#-reflect)
 * [Display Strategies](#-display-strategies)
+    * [Background Mode](#-background-mode)
+    * [Terminal Mode vs Buffer Mode](#-terminal-mode-vs-buffer-mode)
 * [API](#-api)
 * [Benchmarks](#-benchmarks)
 * [Highlight Groups](#-highlight-groups)
@@ -154,7 +157,6 @@ require("zuzu").setup({
 			"vertical rightbelow", -- Split modifiers
 			true                   -- Use "buffer mode"
 		),
-		-- TODO(gitpushjoe): add terminal mode reopen to docs
 		require("zuzu.display_strategies").split_terminal(
 			"horizontal rightbelow",
 			true
@@ -241,11 +243,11 @@ require("zuzu").setup({
 |`path.last_stdout_filename`|The filename to save the stdout to from the last time zuzu was run.
 |`path.last_stderr_filename`|The filename to save the stderr to from the last time zuzu was run.
 |`path.compiler_filename`|The filename to save the [compiler name](#-quickfix) to from the last time zuzu was run.
-|`path.reflect_filename`|The filename to save the source code of the build being run to.See [#reflect](TODO: add link here).
+|`path.reflect_filename`|The filename to save the source code of the build being run to. See [Reflect](#-reflect).
 |`core_hooks`|A list of tuples. The first item in each tuple is the name of the [hook](#-hook), and the second item is a callback to get the value of the hook. For example, by default, the hooks `$file` and `$dir` will be automatically initialized to the current file and directory, respectively, before every build.
 |`zuzu_function_name`|To run a build, zuzu generates a shell file (`.sh` on UNIX-based, `.ps1` on windows) and puts the build script in a function. This is the name of the function.
 |`colors.reopen_stderr`|The color to display errors in when reopening the output from the last run. Cross-platform. See [here](./lua/zuzu/colors.lua) for the list of all available colors.
-|`colors.reflect`|The color to display the source code of the build being run in. Cross-platform. See [#reflect](TODO: add link here).
+|`colors.reflect`|The color to display the source code of the build being run in. Cross-platform. See [Reflect](#-reflect).
 |`prompt_on_simple_edits`|If `false`, zuzu will skip the confirmation prompt on simple edits (no overwrites or deletes).
 |`hook_choices_suffix`|See [Hooks](#-hooks).
 |`compilers`|A list of { compiler-name, [errorformat](https://neovim.io/doc/user/quickfix.html#errorformat) } tuples. When running a build, zuzu will search this list first before running [:compiler](https://neovim.io/doc/user/quickfix.html#%3Acompiler). See [Quickfix](#-quickfix).
@@ -254,8 +256,8 @@ require("zuzu").setup({
 |`qflist_diagnostic_error_level`|The [severity](https://neovim.io/doc/user/diagnostic.html#vim.diagnostic.severity) to use for the quickfix list diagnostics.
 |`write_on_run`|If `true`, the current file will be saved before running a build.
 |`fold_profiles_in_editor`|If `true`, whenever multiple profiles are shown in the profile editor, they will all be folded, except for the most relevant profile.
-|`reflect`|If `true`, the source code of the build being run will be displayed, before the command runs. See [#reflect](TODO: add link here).
-|`newline_after_reflect`|If `true` and `reflect` is `true`, a newline will be added after displaying the source code of the build. See [#reflect](#TODO: add link here).
+|`reflect`|If `true`, the source code of the build being run will be displayed, before the command runs. See [Reflect](#-reflect).
+|`newline_after_reflect`|If `true` and `reflect` is `true`, a newline will be added after displaying the source code of the build. See [Reflect](#-reflect).
 |`newline_before_reopen`|If `true`, a newline will be added before the output of reopen.
 |`enter_closes_buffer`|If `true` and the reopen display strategy returns a buffer, then pressing Enter in the buffer will close it.
 
@@ -307,7 +309,7 @@ python3 -m unittest -b $file
 > [!Note]
 > On UNIX-based systems, use Bash syntax and commands in the profile editor. On Windows, use Powershell syntax and commands.
 
-You can use `z+` (by default) or `require("zuzu").new_profile()` to create a new build profile, using the current file as a template. For example, in a file such as `/home/user/project/main.cpp` (with default settings), you would see the following:
+You can use `z+` (by default) or `require("zuzu").new_profile()` to create a new build profile, using the current file as a template. For example, if you were editing the file `/home/user/project/main.cpp` and pressed `z+`, you would see the following:
 
 ```sh
 ### {{ root: /home/user/project/main.cpp }}
@@ -651,6 +653,26 @@ python3 -m unittest discover -s tests
 
 If the compiler you use isn't available under `:compiler` (or you dislike its implementation), you can register it. Simply add the name of the compiler and its [errorformat](https://neovim.io/doc/user/quickfix.html#errorformat) under the `compilers` parameter in `setup()`. errorformats for Python3, lua, node, and bash have been provided, but if you have found/written an errorformat for your language, feel free to submit a pull request.
 
+## 💭 Reflect
+
+> [!Note]
+> This feature requires `envsubst` on UNIX-based systems, which is not installed on MacOS by default.
+> This can be installed via homebrew:
+
+<details>
+<summary>envsubst install command</summary>
+
+```sh
+brew install gettext
+brew link --force gettext
+```
+
+</details>
+
+Reflect is a feature that displays the source code of the build command being run, before the output of the command. It also replaces hooks like `$file` with their actual values. Furthermore, the build command being run is stored using the `path.reflect_filename` option in the config, so that it can be displayed when reopening the last build output (if the `reopen_reflect` option is enabled).
+
+<br/>
+
 ## 🖥 Display Strategies
 
 Display strategies control the way that build commands are run in Neovim. They are functions that take in the following arguments:
@@ -661,46 +683,60 @@ Display strategies control the way that build commands are run in Neovim. They a
 ---@param build_idx integer
 ---@param last_stdout_path string
 ---@param last_stderr_path string
+---@param is_reopen boolean?
 local function my_strategy(
 	shell_cmd, 
 	profile, 
 	build_idx, 
 	last_stdout_path, 
-	last_stderr_path
+	last_stderr_path,
+	is_reopen
 )
 ```
 
-By default, zuzu uses these four display strategies:
+The four display strategies that are registered by default are listed [here](#--configuration) and their implementations can be found [here](./lua/zuzu/display-strategies).
+
+To use your own custom display strategy function, simply pass it to the `display_strategies` list in the `setup()` function.
+
+<br/>
+
+### ⏳ Background Mode
+
+The background display strategy will create a new buffer, and instantly switch back to the previous buffer (without flashing the screen) and execute the build in the "background buffer". This display strategy can be accessed via `require("zuzu.display_strategies").background()`. This is an alias of the equivalent `require("zuzu.background").display_strategy()`, which returns a display strategy function, created using the arguments passed to it:
 
 ```lua
-# require("zuzu.display_strategies")
+-- lua/zuzu/background.lua
 
-local M = {}
+---@class MessageType: string
+local message_types = {
+	SUCCESS = "SUCCESS",
+	FAILURE = "FAILURE",
+	UPDATE = "UPDATE",
+	NORMAL = "NORMAL",
+}
 
-M.command = function(cmd)
-	vim.cmd("!" .. cmd)
-end
-
-M.split_right = function(cmd)
-	vim.cmd("vertical rightbelow split | terminal " .. cmd)
-end
-
-M.split_below = function(cmd)
-	vim.cmd("horizontal rightbelow split | terminal " .. cmd)
-end
-
-M.background = function(...)
-	-- The implementation is too long to put here.
-	-- See ./lua/zuzu/display_strategies.lua
-	-- This display strategy runs the command in the "background" by opening 
-	-- a new terminal buffer, and switching back to the current buffer. (No
-        -- flash/change is noticeable). To access the buffer, use `:bnext`.
-end
-
-return M
+---@param loop_delay_ms integer?
+---@param print_func (fun(text: string, message_type: MessageType, is_intiial_message: boolean?): any)?
+---@param on_finish (fun(is_success: boolean): any)?
+require("zuzu.background").display_strategy(loop_delay_ms, print_func, on_finish)
 ```
 
-To use your own custom display strategies, simply pass them to the `display_strategies` list in the `setup()` function.
+The purpose of each argument is as follows:
+
+ - `loop_delay_ms`
+	- As the build executes in the background, zuzu will periodically display updates, showing the current build being run and the elapsed time. This argument is the amount of delay between each update, in milliseconds. **Defaults to `1000 / 8` (or 125ms).**
+ - `print_func`
+	- This is the method used to print the updates. It should be a function that takes in the `text` of the update, a `message_type` (see the enum definition above), and an `is_initial_message` boolean that will be `true` on the initial message. **Defaults to `require("zuzu.background").print_functions.notify`**, which will use your Neovim notify system to display the updates. An alternative is provided in `require("zuzu.background").print_functions.nvim_echo`, which will use [nvim_echo](https://neovim.io/doc/user/api.html#nvim_echo%28%29) to display the updates.
+ - `on_finish`
+	- This is the function that will be called when the background build finishes executing. **Defaults to `function() end`.**
+
+<br/>
+
+### 🧩 Terminal Mode vs Buffer Mode
+
+If a display strategy returns `nil`, then it is in "terminal mode" and if it returns an integer (the ID of the buffer to use), it is in "buffer mode". Buffer mode is required for the `enter_closes_buffer` conifg option to work. Furthermore, buffer mode display strategies will have more consistent colors. If using buffer mode, do not execute the build command in the display strategy if `is_reopen` is `true`, as zuzu will automatically populate the buffer with the correct text.
+
+<br/>
 
 ## 🔧 API
 
@@ -762,6 +798,8 @@ require("zuzu").qflist_prev_or_next(is_next)
 -- Prints the current zuzu verison.
 require("zuzu").version()
 ```
+
+<br/>
 
 ## ⏰ Benchmarks
 
@@ -830,6 +868,8 @@ vim.api.nvim_set_keymap(
 ### {{ zu }}
 date +%s%6N
 ```
+
+<br/>
 
 ## 🖍 Highlight Groups
 

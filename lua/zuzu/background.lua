@@ -87,12 +87,13 @@ M.open_qflist_if_errors = function(is_success)
 	end
 end
 
----@param loop_delay_ms number?
+---@param loop_delay_ms integer?
 ---@param print_func (fun(text: string, message_type: MessageType, is_intiial_message: boolean?): any)?
 ---@param on_finish (fun(is_success: boolean): any)?
 M.display_strategy = function(loop_delay_ms, print_func, on_finish)
 	print_func = print_func or M.print_functions.notify
 	loop_delay_ms = loop_delay_ms or (1000 / 8)
+	loop_delay_ms = math.floor(loop_delay_ms)
 	on_finish = on_finish or function() end
 
 	local tbl = {} --- for recursion

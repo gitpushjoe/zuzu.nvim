@@ -15,7 +15,7 @@ M.split_terminal = function(modifiers, buffer_mode)
 	---@return integer? buf_id
 	return function(cmd, _, _, _, _, is_reopen)
 		if is_reopen and buffer_mode then
-			vim.cmd(("%s split | enew"):format(modifiers))
+			vim.cmd(modifiers .. " split | enew")
 		else
 			vim.cmd(modifiers .. " split")
 			vim.cmd("set scrollback=100000")
