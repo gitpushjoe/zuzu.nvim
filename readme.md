@@ -23,7 +23,7 @@ https://github.com/user-attachments/assets/c0d6c5e6-1375-44a3-81f5-7481857f1e4e
 	* create generalized setup code to apply to all builds
   * ### [🧠 smart profile resolution](#-profile-resolution)
 	* if multiple profiles apply to one file, zuzu will intelligently choose the best one
-	* allows you to create profiles that will work on any Python/Javascript/etc. file without setup
+	* allows you to create a "fallback" profile that will apply to every file for a specific language, without setup
   * ### [✔  quickfix integration!](#-quickfix)
 	* view runtime errors as [diagnostic messages](#-quickfix) in your source code
 	* jump between lines of an error traceback quickly 
@@ -113,7 +113,8 @@ use {
 
 ### ⚙  Configuration
 
-Default configuration:
+<details>
+<summary>Default Configuration</summary>
 
 ```lua
 require("zuzu").setup({
@@ -144,9 +145,19 @@ require("zuzu").setup({
 	},
 	display_strategies = {
 		require("zuzu.display_strategies").command,
-		require("zuzu.display_strategies").split_right,
-		require("zuzu.display_strategies").split_below,
-		require("zuzu.display_strategies").background,
+		require("zuzu.display_strategies").split_terminal(
+			"vertical rightbelow", -- Split modifiers
+			true                   -- "Terminal mode" reopen
+		),
+		-- TODO(gitpushjoe): add terminal mode reopen to docs
+		require("zuzu.display_strategies").split_terminal(
+			"horizontal rightbelow",
+			true
+		),
+		require("zuzu.display_strategies").background(
+			--- Delay between each elapsed time update in milliseconds
+			1000 / 8
+		),
 	},
 	path = {
 		root = require("zuzu.platform").join_path(
@@ -158,6 +169,7 @@ require("zuzu").setup({
 		-- Note: last_stderr_filename is not used on Windows
 		last_stderr_filename = "stderr.txt",
 		compiler_filename = "compiler.txt",
+		reflect_filename = "reflect.txt",
 	},
 	core_hooks = {
 		-- Note: these are actually "env:file", "env:dir", etc. on Windows
@@ -167,6 +179,10 @@ require("zuzu").setup({
 		{ "base", require("zuzu.hooks").base },
 		{ "filename", require("zuzu.hooks").filename },
 	},
+	colors = {
+		reopen_stderr = require("zuzu.colors").bright_red,
+		reflect = require("zuzu.colors").bright_yellow,
+	},
 	zuzu_function_name = "zuzu_cmd",
 	prompt_on_simple_edits = false,
 	hook_choices_suffix = "__c",
@@ -175,10 +191,14 @@ require("zuzu").setup({
 		{ "python3", '%A %#File "%f"\\, line %l\\, in %o,%Z %#%m' },
 		{ "lua", "%E%\\\\?lua:%f:%l:%m,%E%f:%l:%m" },
 		-- https://github.com/felixge/vim-nodejs-errorformat/blob/master/ftplugin/javascript.vim
-		-- Note: This will also work for bun.	
+		-- Note: This will also work for bun.
 		{
 			"node",
 			[[%AError: %m,%AEvalError: %m,%ARangeError: %m,%AReferenceError: %m,%ASyntaxError: %m,%ATypeError: %m,%Z%*[\ ]at\ %f:%l:%c,%Z%*[\ ]%m (%f:%l:%c),%*[\ ]%m (%f:%l:%c),%*[\ ]at\ %f:%l:%c,%Z%p^,%A%f:%l,%C%m,%-G%.%#]],
+		},
+		{
+			"bash",
+			"%E%f: line %l: %m",
 		},
 	},
 	qflist_as_diagnostic = true,
@@ -186,6 +206,11 @@ require("zuzu").setup({
 	qflist_diagnostic_error_level = "WARN",
 	write_on_run = true,
 	fold_profiles_in_editor = true,
+	reflect = false,
+	newline_after_reflect = true,
+	newline_before_reopen = false,
+	enter_closes_reopen_buffer = true,
+	reopen_reflect = true,
 })
 ```
 
@@ -211,8 +236,11 @@ require("zuzu").setup({
 |`path.last_stdout_filename`|The filename to save the stdout to from the last time zuzu was run.
 |`path.last_stderr_filename`|The filename to save the stderr to from the last time zuzu was run.
 |`path.compiler_filename`|The filename to save the [compiler name](#-quickfix) to from the last time zuzu was run.
+|`path.reflect_filename`|The filename to save the source code of the build being run to.See [#reflect](TODO: add link here).
 |`core_hooks`|A list of tuples. The first item in each tuple is the name of the [hook](#-hook), and the second item is a callback to get the value of the hook. For example, by default, the hooks `$file` and `$dir` will be automatically initialized to the current file and directory, respectively, before every build.
 |`zuzu_function_name`|To run a build, zuzu generates a shell file (`.sh` on UNIX-based, `.ps1` on windows) and puts the build script in a function. This is the name of the function.
+|`colors.reopen_stderr`|The color to display errors in when reopening the output from the last run. Cross-platform. See [here](./lua/zuzu/colors.lua) for the list of all available colors.
+|`colors.reflect`|The color to display the source code of the build being run in. Cross-platform. See [#reflect](TODO: add link here).
 |`prompt_on_simple_edits`|If `false`, zuzu will skip the confirmation prompt on simple edits (no overwrites or deletes).
 |`hook_choices_suffix`|See [Hooks](#-hooks).
 |`compilers`|A list of { compiler-name, [errorformat](https://neovim.io/doc/user/quickfix.html#errorformat) } tuples. When running a build, zuzu will search this list first before running [:compiler](https://neovim.io/doc/user/quickfix.html#%3Acompiler). See [Quickfix](#-quickfix).
@@ -221,7 +249,12 @@ require("zuzu").setup({
 |`qflist_diagnostic_error_level`|The [severity](https://neovim.io/doc/user/diagnostic.html#vim.diagnostic.severity) to use for the quickfix list diagnostics.
 |`write_on_run`|If `true`, the current file will be saved before running a build.
 |`fold_profiles_in_editor`|If `true`, whenever multiple profiles are shown in the profile editor, they will all be folded, except for the most relevant profile.
+|`reflect`|If `true`, the source code of the build being run will be displayed, before the command runs. See [#reflect](TODO: add link here).
+|`newline_after_reflect`|If `true` and `reflect` is `true`, a newline will be added after displaying the source code of the build. See [#reflect](#TODO: add link here).
+|`newline_before_reopen`|If `true`, a newline will be added before the output of reopen.
+|`enter_closes_reopen_buffer`|If `true` and the reopen display strategy returns a buffer, then pressing Enter in the buffer will close it.
 
+</details>
 <br />
 
 ## ⌨ Profiles

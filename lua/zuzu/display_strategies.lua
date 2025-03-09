@@ -1,6 +1,3 @@
-local Profile = require("zuzu.profile")
-local utils = require("zuzu.utils")
-local Platform = require("zuzu.platform")
 local M = {}
 
 M.command = function(cmd)
@@ -21,7 +18,9 @@ M.split_terminal = function(modifiers, terminal_mode_reopen)
 			vim.cmd(("%s split | enew"):format(modifiers))
 			return vim.api.nvim_get_current_buf()
 		end
-		vim.cmd(("%s split | terminal %s"):format(modifiers, cmd))
+		vim.cmd(modifiers .. " split")
+		vim.cmd("set scrollback=100000")
+		vim.cmd("terminal " .. cmd)
 	end
 end
 
