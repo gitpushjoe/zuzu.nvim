@@ -74,6 +74,9 @@ https://github.com/user-attachments/assets/c0d6c5e6-1375-44a3-81f5-7481857f1e4e
 > [!Important]
 > If you are on Windows, you will need to configure Neovim to use Powershell as its shell. Add the following to your `init.lua`:
 
+<details>
+<summary>init.lua</summary>
+
 ```lua
 vim.o.shell = 'powershell.exe'
 vim.o.shellxquote = ''
@@ -82,6 +85,8 @@ vim.o.shellquote = ''
 vim.o.shellpipe = '| Out-File -Encoding UTF8 %s'
 vim.o.shellredir = '| Out-File -Encoding UTF8 %s'
 ```
+
+</details>
 
 <br/>
 
@@ -147,7 +152,7 @@ require("zuzu").setup({
 		require("zuzu.display_strategies").command,
 		require("zuzu.display_strategies").split_terminal(
 			"vertical rightbelow", -- Split modifiers
-			true                   -- "Terminal mode" reopen
+			true                   -- Use "buffer mode"
 		),
 		-- TODO(gitpushjoe): add terminal mode reopen to docs
 		require("zuzu.display_strategies").split_terminal(
@@ -209,7 +214,7 @@ require("zuzu").setup({
 	reflect = false,
 	newline_after_reflect = true,
 	newline_before_reopen = false,
-	enter_closes_reopen_buffer = true,
+	enter_closes_buffer = true,
 	reopen_reflect = true,
 })
 ```
@@ -252,10 +257,9 @@ require("zuzu").setup({
 |`reflect`|If `true`, the source code of the build being run will be displayed, before the command runs. See [#reflect](TODO: add link here).
 |`newline_after_reflect`|If `true` and `reflect` is `true`, a newline will be added after displaying the source code of the build. See [#reflect](#TODO: add link here).
 |`newline_before_reopen`|If `true`, a newline will be added before the output of reopen.
-|`enter_closes_reopen_buffer`|If `true` and the reopen display strategy returns a buffer, then pressing Enter in the buffer will close it.
+|`enter_closes_buffer`|If `true` and the reopen display strategy returns a buffer, then pressing Enter in the buffer will close it.
 
 </details>
-<br />
 
 ## ⌨ Profiles
 

@@ -50,7 +50,7 @@ local M = {}
 ---@field reflect boolean
 ---@field newline_after_reflect boolean
 ---@field newline_before_reopen boolean
----@field enter_closes_reopen_buffer boolean
+---@field enter_closes_buffer boolean
 ---@field compilers [string, string][]
 ---@field reopen_reflect boolean
 
@@ -147,7 +147,7 @@ M.DEFAULT = {
 	reflect = false,
 	newline_after_reflect = true,
 	newline_before_reopen = false,
-	enter_closes_reopen_buffer = true,
+	enter_closes_buffer = true,
 	reopen_reflect = true,
 }
 

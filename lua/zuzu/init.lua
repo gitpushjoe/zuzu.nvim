@@ -38,13 +38,26 @@ M.run = function(build_idx, display_strategy_idx)
 	end
 	local cmd =
 		utils.assert(State.state_build(state, validate_path(), build_idx))
-	preferences.display_strategies[display_strategy_idx](
+	local buf_id = preferences.display_strategies[display_strategy_idx](
 		cmd,
 		utils.read_only(assert(state.profile)),
 		build_idx,
 		Preferences.get_last_stdout_path(preferences),
 		Preferences.get_last_stderr_path(preferences)
 	)
+	if not buf_id then
+		return
+	end
+
+	if preferences.enter_closes_buffer then
+		vim.api.nvim_buf_set_keymap(
+			buf_id,
+			"n",
+			"<Enter>",
+			":bd!<CR>",
+			{ noremap = true, silent = true }
+		)
+	end
 end
 
 M.reopen = function(display_strategy_idx)
@@ -157,7 +170,7 @@ M.reopen = function(display_strategy_idx)
 		false,
 		stdout_lines
 	)
-	if preferences.enter_closes_reopen_buffer then
+	if preferences.enter_closes_buffer then
 		vim.api.nvim_buf_set_keymap(
 			reopen_buf_id,
 			"n",
