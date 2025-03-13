@@ -5,6 +5,7 @@ local ProfileEditor = require("zuzu.profile_editor")
 local Preferences = require("zuzu.preferences")
 local ProfileMap = require("zuzu.profile_map")
 local utils = require("zuzu.utils")
+local colors = require("zuzu.colors")
 local M = {}
 
 ---@class (exact) BuildPair
@@ -77,15 +78,41 @@ function M.state_write_build(state, build_name, build_text, build_idx)
 				Preferences.get_hooks_path(state.preferences),
 				Preferences.get_setup_path(state.preferences)
 			)
-			.. ("function %s {%s%s%s%s%s}%s"):format(
+			.. ("function %s {%s%s%s}%s"):format(
 				state.preferences.zuzu_function_name,
-				platform.NEWLINE,
-				platform.choose(":", ";"), -- no-op
-				platform.NEWLINE,
+				platform.choose("\n:\n", ""), -- no-op
 				build_text,
-				platform.NEWLINE,
+				platform.choose("\n", ""), -- no trailing newline needed on Powershell
 				platform.NEWLINE
 			)
+			.. (state.preferences.reflect and (platform
+				.choose(
+					[[
+[ -t 1 ] && echo -en "%s"
+declare -f -p %s | envsubst | sed 's/^    //' | sed '1,3d;$d' %s
+[ -t 1 ] && echo -en "%s"
+]],
+					[[
+$reflectColor = "%s"
+$content = (Get-Content function:%s) -replace '^\s{4}',''
+$reflection = $ExecutionContext.InvokeCommand.ExpandString($content)
+$reflection | Out-File -FilePath %s
+Write-host $reflection -ForegroundColor $reflectColor 
+]]
+				)
+				:format(
+					state.preferences.colors.reflect,
+					state.preferences.zuzu_function_name,
+					state.preferences.reopen_reflect
+							and ((platform.choose("| tee %s", "%s")):format(
+								Preferences.get_reflect_path(state.preferences)
+							))
+						or "",
+					colors.reset
+				) .. (state.preferences.newline_after_reflect and platform.choose(
+				"echo\n",
+				'Write-Output "`n"\r\n'
+			) or "")) or "")
 			.. platform.choose(
 				(
 					"%s 2> >(tee %s; zuzu_pid1=$!) > >(tee %s; zuzu_pid2=$!)"
@@ -189,8 +216,10 @@ function M.state_build(state, path, build_idx)
 		M.state_write_build(state, build_name, build_text, build_idx)
 	end
 
-	return platform.choose("source ", ". ")
-		.. Preferences.get_build_path(state.preferences, build_name)
+	return platform.choose(
+		state.preferences.reflect and "bash " or "source ",
+		". "
+	) .. Preferences.get_build_path(state.preferences, build_name)
 end
 
 ---@param state State
@@ -423,6 +452,7 @@ end
 
 ---@param state State
 ---@param is_stable boolean
+---@return true?
 M.toggle_qflist = function(state, is_stable)
 	utils.assert(
 		vim.api.nvim_get_current_buf()
@@ -465,7 +495,7 @@ M.toggle_qflist = function(state, is_stable)
 	end
 	if #text == 0 then
 		vim.notify("zuzu: No errors!")
-		return
+		return true
 	end
 
 	vim.cmd("cgetfile " .. Preferences.get_last_stderr_path(state.preferences))
@@ -518,7 +548,9 @@ M.qflist_prev_or_next = function(state, is_next)
 		is_next = not is_next
 	end
 	if not state.qflist_open then
-		M.toggle_qflist(state, true)
+		if M.toggle_qflist(state, true) then
+			return
+		end
 	end
 	if
 		not pcall(function()

@@ -130,7 +130,7 @@ M.create_floating_options_window = function(
 	vim.api.nvim_open_win(buf_id, true, opts)
 
 	vim.api.nvim_command("hi noCursor blend=100 cterm=strikethrough")
-	vim.api.nvim_command("set guicursor+=a:noCursor/lCursor")
+	vim.api.nvim_command("set guicursor+=a:noCursor")
 
 	local lines = {}
 	for i, choice in ipairs(choices) do
@@ -157,7 +157,7 @@ M.create_floating_options_window = function(
 			if vim.fn.bufnr("%") == buf_id then
 				vim.cmd("b#|bwipeout! " .. buf_id)
 			end
-			vim.api.nvim_command("set guicursor-=a:noCursor/lCursor")
+			vim.api.nvim_command("set guicursor-=a:noCursor")
 		end,
 	})
 

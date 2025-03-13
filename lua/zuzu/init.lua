@@ -2,6 +2,7 @@ local Atlas = require("zuzu.atlas")
 local Preferences = require("zuzu.preferences")
 local State = require("zuzu.state")
 local utils = require("zuzu.utils")
+local colors = require("zuzu.colors")
 local platform = require("zuzu.platform")
 local M = {}
 
@@ -31,40 +32,199 @@ M.run = function(build_idx, display_strategy_idx)
 		"`display_strategy_idx` should be an integer"
 	)
 	if
-		state.preferences.write_on_run
-		and vim.api.nvim_buf_get_option(0, "modified")
+		preferences.write_on_run and vim.api.nvim_buf_get_option(0, "modified")
 	then
 		vim.cmd("write")
 	end
 	local cmd =
 		utils.assert(State.state_build(state, validate_path(), build_idx))
-	preferences.display_strategies[display_strategy_idx](
+	local buf_id = preferences.display_strategies[display_strategy_idx](
 		cmd,
 		utils.read_only(assert(state.profile)),
 		build_idx,
 		Preferences.get_last_stdout_path(preferences),
 		Preferences.get_last_stderr_path(preferences)
 	)
+	if not buf_id then
+		return
+	end
+
+	if preferences.enter_closes_buffer then
+		vim.api.nvim_buf_set_keymap(
+			buf_id,
+			"n",
+			"<Enter>",
+			":bd!<CR>",
+			{ noremap = true, silent = true }
+		)
+	end
 end
 
 M.reopen = function(display_strategy_idx)
-	preferences.display_strategies[display_strategy_idx](
-		"cat "
-			.. Preferences.get_last_stdout_path(preferences)
+	local last_stdout_path = Preferences.get_last_stdout_path(preferences)
+	local last_stderr_path = Preferences.get_last_stderr_path(preferences)
+	local reopen_buf_id = preferences.display_strategies[display_strategy_idx](
+		("%s%scat %s"):format(
+			preferences.newline_before_reopen and "echo;" or "",
+			preferences.reflect
+					and preferences.reopen_reflect
+					and (platform.choose(
+						("[ -t 1 ]&&echo -en '%s';cat %s;[ -t 1 ]&&echo -en '\\033[0m';"):format(
+							preferences.colors.reflect,
+							Preferences.get_reflect_path(preferences)
+						),
+						("gc %s | \\%% { Write-Host $_ -f %s }; "):format(
+							Preferences.get_reflect_path(preferences),
+							preferences.colors.reflect
+						)
+					) .. (preferences.newline_after_reflect and "echo '';" or ""))
+				or "",
+			Preferences.get_last_stdout_path(preferences)
+		)
 			.. (
 				platform.PLATFORM ~= "win"
-					and " && echo -e '\\033[31m' && " .. "cat " .. Preferences.get_last_stderr_path(
-						preferences
-					) .. " && echo -n -e '\\033[0m'"
+					and (";[ -t 1 ]&&echo -en '\\033[31m';cat %s;[ -t 1 ]&&echo -en '\\033[0m'||true"):format(
+						Preferences.get_last_stderr_path(preferences)
+					)
 				or ""
 			),
 		utils.read_only(
 			utils.assert(Atlas.resolve_profile(state.atlas, validate_path()))
 		),
 		0,
-		Preferences.get_last_stdout_path(preferences),
-		Preferences.get_last_stderr_path(preferences)
+		last_stdout_path,
+		last_stderr_path,
+		true
 	)
+	if not reopen_buf_id then
+		return
+	end
+
+	---@param str string
+	---@return string[]
+	local split_lines = function(str)
+		local lines = {}
+		for line in str:gmatch("([^\n]*)\n?") do
+			table.insert(lines, line)
+		end
+		return lines
+	end
+
+	--- TODO: handle windows
+
+	local line_number = 0
+	if preferences.reflect and preferences.reopen_reflect then
+		local reflect_lines = split_lines(
+			(preferences.newline_before_reopen and platform.NEWLINE or "")
+				.. (utils.read_from_path(
+					Preferences.get_reflect_path(preferences) or ""
+				) or "")
+				.. (
+					preferences.newline_after_reflect and platform.NEWLINE or ""
+				)
+		)
+		vim.cmd(
+			([[highlight ZuzuReopenReflect guifg=%s]]):format(
+				colors.unix2ps(preferences.colors.reflect)
+			)
+		)
+		for i, line in ipairs(reflect_lines) do
+			vim.api.nvim_buf_set_lines(
+				reopen_buf_id,
+				i - 1,
+				-1,
+				false,
+				{ line }
+			)
+			vim.api.nvim_buf_add_highlight(
+				reopen_buf_id,
+				-1,
+				"ZuzuReopenReflect",
+				i - 1,
+				0,
+				-1
+			)
+		end
+		line_number = #reflect_lines - 1
+	end
+
+	local stdout_lines = split_lines(
+		(
+			(
+					preferences.newline_before_reopen
+					and not preferences.reopen_reflect
+				)
+				and platform.NEWLINE
+			or ""
+		) .. (utils.read_from_path(last_stdout_path) or "")
+	)
+
+	if stdout_lines[#stdout_lines] == "" then
+		stdout_lines[#stdout_lines] = nil
+	end
+
+	vim.api.nvim_buf_set_lines(
+		reopen_buf_id,
+		line_number,
+		-1,
+		false,
+		stdout_lines
+	)
+	if preferences.enter_closes_buffer then
+		vim.api.nvim_buf_set_keymap(
+			reopen_buf_id,
+			"n",
+			"<Enter>",
+			":bd!<CR>",
+			{ noremap = true, silent = true }
+		)
+	end
+
+	local stderr_text = utils.read_from_path(last_stderr_path) or ""
+	if stderr_text ~= "" then
+		local stderr_lines = split_lines(stderr_text)
+		local line_count = vim.api.nvim_buf_line_count(reopen_buf_id)
+
+		vim.cmd(
+			([[highlight ZuzuReopenStderr guifg=%s]]):format(
+				colors.unix2ps(preferences.colors.reopen_stderr)
+			)
+		)
+		for i, line in ipairs(stderr_lines) do
+			vim.api.nvim_buf_set_lines(reopen_buf_id, -1, -1, false, { line })
+			vim.api.nvim_buf_add_highlight(
+				reopen_buf_id,
+				-1,
+				"ZuzuReopenStderr",
+				line_count + i - 1,
+				0,
+				-1
+			)
+		end
+	end
+
+	local line_count = vim.api.nvim_buf_line_count(reopen_buf_id)
+	if
+		vim.api.nvim_buf_get_lines(
+			reopen_buf_id,
+			line_count - 1,
+			line_count,
+			false
+		)[1] == ""
+	then
+		vim.api.nvim_buf_set_lines(
+			reopen_buf_id,
+			line_count - 1,
+			line_count,
+			false,
+			{}
+		)
+	end
+
+	vim.bo.readonly = true
+	vim.api.nvim_set_option_value("buftype", "acwrite", { buf = reopen_buf_id })
+	vim.api.nvim_set_option_value("modified", false, { buf = reopen_buf_id })
+	vim.api.nvim_set_option_value("modifiable", false, { buf = reopen_buf_id })
 end
 
 M.new_profile = function()
