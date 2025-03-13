@@ -204,6 +204,7 @@ M.table_join = function(function_name, arg_name, src_table, table)
 			end
 			src_table[i] = table[i]
 		end
+		return src_table
 	end
 	err = validate.types(function_name, { { table, "table", arg_name } })
 	if err then
