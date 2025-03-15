@@ -291,6 +291,17 @@ M.setup = function(table)
 	vim.cmd([[highlight ZuzuBackgroundRun guifg=#888888]])
 	vim.cmd([[highlight ZuzuSuccess guifg=LightGreen]])
 	vim.cmd([[highlight ZuzuFailure guifg=LightRed]])
+
+	vim.cmd([[highlight ZuzuChoiceKeyOdd guifg=LightMagenta cterm=bold gui=bold]])
+	vim.cmd([[highlight ZuzuChoiceKeyEven guifg=Violet cterm=bold gui=bold]])
+	vim.cmd([[highlight ZuzuChoiceOdd guifg=LightMagenta cterm=bold,underline gui=bold,underline]])
+	vim.cmd([[highlight ZuzuChoiceEven guifg=Violet cterm=bold,underline gui=bold,underline]])
+
+	vim.cmd([[highlight ZuzuChoicesEsc guifg=LightRed]])
+	vim.cmd([[highlight ZuzuChoicesExit guifg=LightRed cterm=bold,italic gui=bold,italic]])
+	vim.cmd([[highlight ZuzuChoicesSpecial guifg=#ccccaa]])
+	vim.cmd([[highlight ZuzuChoicesSpecialChoice guifg=#ccccaa cterm=bold,italic gui=bold,italic]])
+
 	setup_called = true
 	preferences = utils.assert(
 		Preferences.new('require("zuzu.nvim").setup(...)', table or {})

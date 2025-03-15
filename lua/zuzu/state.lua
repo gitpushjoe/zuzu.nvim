@@ -307,8 +307,9 @@ function M.state_edit_hooks(state, path)
 	end
 
 	local choices = {}
+	local choice_hints = {}
 	for _, hook_pair in ipairs(hooks) do
-		local hook_name = hook_pair[1]
+		local hook_name, hook_val = hook_pair[1], hook_pair[2]
 		if
 			not utils.str_ends_with(
 				hook_name,
@@ -316,6 +317,7 @@ function M.state_edit_hooks(state, path)
 			)
 		then
 			table.insert(choices, hook_name)
+			table.insert(choice_hints, hook_val)
 		end
 	end
 
@@ -331,7 +333,9 @@ function M.state_edit_hooks(state, path)
 			return (':bd! | lua require("zuzu").edit_hook("%s")<CR>'):format(
 				hook_name
 			)
-		end
+		end,
+		nil,
+		choice_hints
 	)
 end
 
@@ -389,7 +393,6 @@ foreach ($item in $array) {
 		if hook_choices[#hook_choices] == "" then
 			table.remove(hook_choices)
 		end
-		table.insert(hook_choices, "{custom}")
 
 		utils.create_floating_options_window(
 			hook_choices,
@@ -405,12 +408,7 @@ foreach ($item in $array) {
 					':bd! | lua require("zuzu").set_hook' .. '("%s", "%s")<CR>'
 				):format(hook_name, value)
 			end,
-			function(idx)
-				if idx == #hook_choices then
-					return 0
-				end
-				return idx
-			end
+			"{custom}"
 		)
 		return
 	end
