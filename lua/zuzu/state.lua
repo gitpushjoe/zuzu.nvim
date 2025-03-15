@@ -329,6 +329,7 @@ function M.state_edit_hooks(state, path)
 	utils.create_floating_options_window(
 		choices,
 		"zuzu///hooks",
+		"Hooks",
 		function(hook_name)
 			return (':bd! | lua require("zuzu").edit_hook("%s")<CR>'):format(
 				hook_name
@@ -397,6 +398,7 @@ foreach ($item in $array) {
 		utils.create_floating_options_window(
 			hook_choices,
 			"zuzu///hooks/" .. hook_name,
+			"$" .. hook_name,
 			function(value)
 				if value == "{custom}" then
 					return (
@@ -414,12 +416,23 @@ foreach ($item in $array) {
 	end
 
 	vim.ui.input({
-		prompt = ('Enter new value for hook "%s": '):format(hook_name),
+		prompt = ("Enter new value for $%s (currently %s): \n"):format(
+			hook_name,
+			hook_val:sub(1, 1) == '"' and hook_val or ('"%s"'):format(hook_val)
+		),
 	}, function(input)
 		if not input then
 			return
 		end
-		print("\nUpdated hook to: " .. input)
+		vim.cmd("redraw!")
+		vim.api.nvim_echo({
+			{ "Updated " },
+			{ "$" .. hook_name, "FloatTitle" },
+			{ (" from "):format(hook_name) },
+			{ hook_val, "ZuzuHookPrevValue" },
+			{ " -> " },
+			{ input, "ZuzuHookNextValue" },
+		}, true, {})
 		local hooks = Profile.hooks(profile)
 		hooks[hook_idx][2] = input
 		M.state_write_atlas_function(state)()
@@ -438,8 +451,15 @@ M.state_set_hook = function(state, path, hook_name, hook_val)
 
 	for _, hook_pair in ipairs(Profile.hooks(profile)) do
 		if hook_pair[1] == hook_name then
+			vim.api.nvim_echo({
+				{ "Updated " },
+				{ "$" .. hook_name, "FloatTitle" },
+				{ (" from "):format(hook_name) },
+				{ hook_pair[2], "ZuzuHookPrevValue" },
+				{ " -> " },
+				{ hook_val, "ZuzuHookNextValue" },
+			}, true, {})
 			hook_pair[2] = tostring(hook_val)
-			print("Updated hook to: " .. hook_val)
 			M.state_write_atlas_function(state)()
 			return
 		end

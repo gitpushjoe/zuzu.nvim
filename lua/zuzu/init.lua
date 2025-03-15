@@ -300,7 +300,10 @@ M.setup = function(table)
 	vim.cmd([[highlight ZuzuChoicesEsc guifg=LightRed]])
 	vim.cmd([[highlight ZuzuChoicesExit guifg=LightRed cterm=bold,italic gui=bold,italic]])
 	vim.cmd([[highlight ZuzuChoicesSpecial guifg=#ccccaa]])
-	vim.cmd([[highlight ZuzuChoicesSpecialChoice guifg=#ccccaa cterm=bold,italic gui=bold,italic]])
+	vim.cmd([[highlight ZuzuChoicesSpecialChoice guifg=#ccccaa cterm=bold gui=bold]])
+
+	vim.cmd([[highlight ZuzuHookPrevValue guifg=Yellow cterm=bold gui=bold]])
+	vim.cmd([[highlight ZuzuHookNextValue guifg=LightGreen cterm=bold gui=bold]])
 
 	setup_called = true
 	preferences = utils.assert(

@@ -93,12 +93,14 @@ end
 
 ---@param choices string[]
 ---@param buf_name string
+---@param buf_title string
 ---@param on_select fun(s: string): string
 ---@param special_choice string?
 ---@param choice_hints string[]?
 M.create_floating_options_window = function(
 	choices,
 	buf_name,
+	buf_title,
 	on_select,
 	special_choice,
 	choice_hints
@@ -267,7 +269,7 @@ M.create_floating_options_window = function(
 		row = (vim.o.lines - height) / 2 - 1,
 		style = "minimal",
 		border = "rounded",
-		title = "Press a key",
+		title = buf_title,
 		title_pos = "center",
 	}
 
