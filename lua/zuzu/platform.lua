@@ -28,4 +28,14 @@ M.join_path = function(...)
 	return table.concat(paths, M.PATH_SEP)
 end
 
+M.SHELL_IS_BASH = (function()
+	if M.PLATFORM ~= "unix" then
+		return false
+	end
+	local phandle = assert(io.popen("echo -n $SHELL"))
+	local ret = phandle:read("*a"):sub(-4, -1) == "bash"
+	phandle:close()
+	return ret
+end)()
+
 return M
