@@ -217,7 +217,8 @@ function M.state_build(state, path, build_idx)
 	end
 
 	return platform.choose(
-		state.preferences.reflect and "bash " or "source ",
+		(not state.preferences.reflect and platform.SHELL_IS_BASH) and "source "
+			or "bash ",
 		". "
 	) .. Preferences.get_build_path(state.preferences, build_name)
 end
