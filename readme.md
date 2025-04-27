@@ -882,4 +882,14 @@ ZuzuHighlight
 ZuzuBackgroundRun
 ZuzuSuccess
 ZuzuFailure
+ZuzuChoiceKeyOdd
+ZuzuChoiceKeyEven
+ZuzuChoiceOdd
+ZuzuChoiceEven
+ZuzuChoicesEsc
+ZuzuChoicesExit
+ZuzuChoicesSpecial
+ZuzuChoicesSpecialChoice
+ZuzuHookPrevValue
+ZuzuHookNextValue
 ```
