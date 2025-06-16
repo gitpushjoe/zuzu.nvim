@@ -341,7 +341,7 @@ M.create_floating_options_window = function(
 	vim.api.nvim_set_option_value("modified", false, { buf = buf_id })
 	vim.api.nvim_set_option_value("modifiable", false, { buf = buf_id })
 	vim.cmd("setlocal nowrap")
-	vim.cmd("let b:timeoutlen = 0")
+	vim.cmd("setlocal timeoutlen=0")
 end
 
 return M
