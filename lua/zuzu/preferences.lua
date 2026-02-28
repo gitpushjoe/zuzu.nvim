@@ -60,6 +60,11 @@ local env_var_syntax = function(hook_name)
 	return platform.choose("", "env:") .. hook_name
 end
 
+local unset = {}
+M.unset = function()
+	return unset
+end
+
 ---@type Preferences
 M.DEFAULT = {
 	build_count = 4,
@@ -158,28 +163,15 @@ M.table_join = function(function_name, arg_name, src_table, table)
 	end
 	local is_array = src_table[1] ~= nil
 	if is_array then
-		---assume all lists of 2 items are 2-tuples
-		local is_tuple = #src_table == 2
-		if is_tuple then
-			err = validate.types(function_name, {
-				{ table[1], type(src_table[1]), arg_name .. "[1]" },
-				{ table[2], type(src_table[2]), arg_name .. "[2]" },
-			})
-			if err then
-				return nil, err
-			end
-			src_table[1] = table[1]
-			src_table[2] = table[2]
-			return src_table
-		end
 		local expected_type = type(src_table[1])
-		local isnt_list_of_tables = expected_type ~= type({})
-		if isnt_list_of_tables then
+		local is_list_of_tables = expected_type == type({})
+		if not is_list_of_tables then
 			err = validate.types_in_list(
 				function_name,
 				table,
 				arg_name,
-				expected_type
+				expected_type,
+				unset
 			)
 			if err then
 				return nil, err
@@ -200,7 +192,7 @@ M.table_join = function(function_name, arg_name, src_table, table)
 		end
 		return src_table
 	end
-	err = validate.types(function_name, { { table, "table", arg_name } })
+	err = validate.types(function_name, { { table, "table", arg_name } }, unset)
 	if err then
 		return nil, err
 	end
@@ -212,7 +204,7 @@ M.table_join = function(function_name, arg_name, src_table, table)
 					type(item) .. "?",
 					("%s.%s"):format(arg_name, key),
 				},
-			})
+			}, unset)
 		else
 			_, err = M.table_join(
 				function_name,
@@ -227,6 +219,9 @@ M.table_join = function(function_name, arg_name, src_table, table)
 		if table[key] == nil then
 			table[key] = src_table[key]
 			src_table[key] = table[key]
+		elseif table[key] == unset then
+			src_table[key] = nil
+			table[key] = nil
 		else
 			src_table[key] = table[key]
 		end

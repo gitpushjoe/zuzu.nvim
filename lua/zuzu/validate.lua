@@ -71,13 +71,17 @@ end
 
 ---@param function_name string
 ---@param data {[1]: any, [2]: string, [3]: string?}[]
+---@param universal_obj any|nil
 ---@return string? errmsg
-M.types = function(function_name, data)
+M.types = function(function_name, data, universal_obj)
 	for _, item in ipairs(data) do
-		local is_correct = true;
+		local is_correct = true
 		(function()
 			local elem = item[1]
 			local expected_types = {}
+			if universal_obj and elem == universal_obj then
+				return
+			end
 			for type in item[2]:gmatch("[^|]*") do
 				table.insert(expected_types, type)
 			end
@@ -106,10 +110,18 @@ end
 ---@param list any[]
 ---@param arg_name string
 ---@param expected_type string
+---@param universal_obj any|nil
 ---@return string? errmsg
-M.types_in_list = function(function_name, list, arg_name, expected_type)
+M.types_in_list = function(
+	function_name,
+	list,
+	arg_name,
+	expected_type,
+	universal_obj
+)
 	arg_name = arg_name or M.RETVAL
-	local err = M.types(function_name, { { list, "table", arg_name } })
+	local err =
+		M.types(function_name, { { list, "table", arg_name } }, universal_obj)
 	if err then
 		return err
 	end
@@ -121,7 +133,8 @@ M.types_in_list = function(function_name, list, arg_name, expected_type)
 			or (arg_name .. "[" .. i .. "]")
 		err = M.types(
 			new_function_name,
-			{ { value, expected_type, new_arg_name } }
+			{ { value, expected_type, new_arg_name } },
+			universal_obj
 		)
 		if err then
 			return err
@@ -132,17 +145,25 @@ end
 
 ---@param function_name string
 ---@param data {[1]: any, [2]: table, [3]: string?}[]
+---@param universal_obj any|nil
 ---@return string? errmsg
-M.are_instances = function(function_name, data)
+M.are_instances = function(function_name, data, universal_obj)
 	for _, item in ipairs(data) do
-		if not item[1] then
-			return M.invalid_instance_error(function_name, item)
-		end
-		if type(item[1]) ~= type({}) then
-			return M.invalid_instance_error(function_name, item)
-		end
-		if item[1].__index ~= item[2] then
-			return M.invalid_instance_error(function_name, item)
+		local errmsg = not (universal_obj and item == universal_obj)
+				and (function()
+					if not item[1] then
+						return M.invalid_instance_error(function_name, item)
+					end
+					if type(item[1]) ~= type({}) then
+						return M.invalid_instance_error(function_name, item)
+					end
+					if item[1].__index ~= item[2] then
+						return M.invalid_instance_error(function_name, item)
+					end
+				end)()
+			or nil
+		if errmsg then
+			return errmsg
 		end
 	end
 	return nil
