@@ -64,30 +64,31 @@ M.reopen = function(display_strategy_idx)
 	local last_stdout_path = Preferences.get_last_stdout_path(preferences)
 	local last_stderr_path = Preferences.get_last_stderr_path(preferences)
 	local reopen_buf_id = preferences.display_strategies[display_strategy_idx](
-		("%s%scat %s"):format(
+		("%s%scat %s%s"):format(
 			preferences.newline_before_reopen and "echo;" or "",
 			preferences.reflect
 					and preferences.reopen_reflect
-					and (platform.choose(
-						("[ -t 1 ]&&echo -en '%s';cat %s;[ -t 1 ]&&echo -en '\\033[0m';"):format(
-							preferences.colors.reflect,
-							Preferences.get_reflect_path(preferences)
+					and ("%s%s"):format(
+						platform.choose(
+							("[ -t 1 ]&&echo -en '%s';cat %s;[ -t 1 ]&&echo -en '\\033[0m';"):format(
+								preferences.colors.reflect,
+								Preferences.get_reflect_path(preferences)
+							),
+							("gc %s | \\%% { Write-Host $_ -f %s }; "):format(
+								Preferences.get_reflect_path(preferences),
+								preferences.colors.reflect
+							)
 						),
-						("gc %s | \\%% { Write-Host $_ -f %s }; "):format(
-							Preferences.get_reflect_path(preferences),
-							preferences.colors.reflect
-						)
-					) .. (preferences.newline_after_reflect and "echo '';" or ""))
+						preferences.newline_after_reflect and "echo '';" or ""
+					)
 				or "",
-			Preferences.get_last_stdout_path(preferences)
-		)
-			.. (
-				platform.PLATFORM ~= "win"
+			Preferences.get_last_stdout_path(preferences),
+			platform.PLATFORM ~= "win"
 					and (";[ -t 1 ]&&echo -en '\\033[31m';cat %s;[ -t 1 ]&&echo -en '\\033[0m'||true"):format(
 						Preferences.get_last_stderr_path(preferences)
 					)
 				or ""
-			),
+		),
 		utils.read_only(
 			utils.assert(Atlas.resolve_profile(state.atlas, validate_path()))
 		),
@@ -115,13 +116,13 @@ M.reopen = function(display_strategy_idx)
 	local line_number = 0
 	if preferences.reflect and preferences.reopen_reflect then
 		local reflect_lines = split_lines(
-			(preferences.newline_before_reopen and platform.NEWLINE or "")
-				.. (utils.read_from_path(
+			("%s%s%s"):format(
+				preferences.newline_before_reopen and platform.NEWLINE or "",
+				utils.read_from_path(
 					Preferences.get_reflect_path(preferences) or ""
-				) or "")
-				.. (
-					preferences.newline_after_reflect and platform.NEWLINE or ""
-				)
+				) or "",
+				preferences.newline_after_reflect and platform.NEWLINE or ""
+			)
 		)
 		vim.cmd(
 			([[highlight ZuzuReopenReflect guifg=%s]]):format(
@@ -149,14 +150,15 @@ M.reopen = function(display_strategy_idx)
 	end
 
 	local stdout_lines = split_lines(
-		(
+		("%s%s"):format(
 			(
-					preferences.newline_before_reopen
-					and not preferences.reopen_reflect
-				)
-				and platform.NEWLINE
-			or ""
-		) .. (utils.read_from_path(last_stdout_path) or "")
+				preferences.newline_before_reopen
+				and not preferences.reopen_reflect
+			)
+					and platform.NEWLINE
+				or "",
+			utils.read_from_path(last_stdout_path) or ""
+		)
 	)
 
 	if stdout_lines[#stdout_lines] == "" then
@@ -292,18 +294,30 @@ M.setup = function(table)
 	vim.cmd([[highlight ZuzuSuccess guifg=LightGreen]])
 	vim.cmd([[highlight ZuzuFailure guifg=LightRed]])
 
-	vim.cmd([[highlight ZuzuChoiceKeyOdd guifg=LightMagenta cterm=bold gui=bold]])
+	vim.cmd(
+		[[highlight ZuzuChoiceKeyOdd guifg=LightMagenta cterm=bold gui=bold]]
+	)
 	vim.cmd([[highlight ZuzuChoiceKeyEven guifg=Violet cterm=bold gui=bold]])
-	vim.cmd([[highlight ZuzuChoiceOdd guifg=LightMagenta cterm=bold,underline gui=bold,underline]])
-	vim.cmd([[highlight ZuzuChoiceEven guifg=Violet cterm=bold,underline gui=bold,underline]])
+	vim.cmd(
+		[[highlight ZuzuChoiceOdd guifg=LightMagenta cterm=bold,underline gui=bold,underline]]
+	)
+	vim.cmd(
+		[[highlight ZuzuChoiceEven guifg=Violet cterm=bold,underline gui=bold,underline]]
+	)
 
 	vim.cmd([[highlight ZuzuChoicesEsc guifg=LightRed]])
-	vim.cmd([[highlight ZuzuChoicesExit guifg=LightRed cterm=bold,italic gui=bold,italic]])
+	vim.cmd(
+		[[highlight ZuzuChoicesExit guifg=LightRed cterm=bold,italic gui=bold,italic]]
+	)
 	vim.cmd([[highlight ZuzuChoicesSpecial guifg=#ccccaa]])
-	vim.cmd([[highlight ZuzuChoicesSpecialChoice guifg=#ccccaa cterm=bold gui=bold]])
+	vim.cmd(
+		[[highlight ZuzuChoicesSpecialChoice guifg=#ccccaa cterm=bold gui=bold]]
+	)
 
 	vim.cmd([[highlight ZuzuHookPrevValue guifg=Yellow cterm=bold gui=bold]])
-	vim.cmd([[highlight ZuzuHookNextValue guifg=LightGreen cterm=bold gui=bold]])
+	vim.cmd(
+		[[highlight ZuzuHookNextValue guifg=LightGreen cterm=bold gui=bold]]
+	)
 
 	setup_called = true
 	preferences = utils.assert(

@@ -201,7 +201,7 @@ M.table_join = function(function_name, arg_name, src_table, table)
 			err = validate.types(function_name, {
 				{
 					table[key],
-					type(item) .. "?",
+					("%s?"):format(type(item)),
 					("%s.%s"):format(arg_name, key),
 				},
 			}, unset)
@@ -354,7 +354,7 @@ function M.bind_keymaps(preferences)
 		vim.api.nvim_set_keymap(
 			"n",
 			keymap,
-			"<cmd>lua require('zuzu')." .. action .. "<CR>",
+			("<cmd>lua require('zuzu').%s<CR>"):format(action),
 			{ noremap = true, silent = true, desc = description }
 		)
 	end

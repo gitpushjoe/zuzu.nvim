@@ -96,20 +96,21 @@ function M.profile_text(editor, id, profile)
 	)
 	for i, keymap in ipairs(editor.preferences.keymaps.build[1]) do
 		local name, build_text, compiler = Profile.build_info(profile, i)
-		build_text = (
+		build_text = ("%s%s%s"):format(
 			name ~= tostring(i)
-				and ("### {{ name: %s }}%s"):format(name, platform.NEWLINE)
-			or ""
+					and ("### {{ name: %s }}%s"):format(name, platform.NEWLINE)
+				or "",
+			compiler
+					and ("### {{ compiler: %s }}%s"):format(
+						compiler,
+						platform.NEWLINE
+					)
+				or "",
+			build_text
 		)
-			.. (compiler and ("### {{ compiler: %s }}%s"):format(
-				compiler,
-				platform.NEWLINE
-			) or "")
-			.. build_text
-		text = text .. ([[
-
+		text = ([[%s
 ### {{ %s }}
-%s]]):format(keymap, build_text)
+%s]]):format(text, keymap, build_text)
 	end
 	return text
 end

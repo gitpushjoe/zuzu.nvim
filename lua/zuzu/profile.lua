@@ -105,10 +105,10 @@ function M.new(
 				return table.insert(hook_list, { hook_name, hook_val })
 			end
 			utils.error(
-				("Could not parse hook: %s. Format is " .. platform.choose(
-					"`export name=value`",
-					"`$VAR = value`"
-				) .. "."):format(hook)
+				("Could not parse hook: %s. Format is `%s`."):format(
+					hook,
+					platform.choose("export name=value", "$VAR = value")
+				)
 			)
 		end)()
 	end
@@ -140,7 +140,7 @@ function M.new(
 			build_compiler = ("(%s("):format(build_compiler)
 			build = rest
 		end
-		build = (name or "") .. build .. (build_compiler or "")
+		build = ("%s%s%s"):format(name or "", build, build_compiler or "")
 
 		table.insert(parsed_builds, build)
 	end

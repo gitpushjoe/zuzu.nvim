@@ -72,48 +72,58 @@ end
 function M.state_write_build(state, build_name, build_text, build_idx)
 	utils.write_to_path(
 		Preferences.get_build_path(state.preferences, build_name),
-		platform
-			.choose("source %s\nsource %s\n", '. "%s"\r\n. "%s"\r\n')
-			:format(
-				Preferences.get_hooks_path(state.preferences),
-				Preferences.get_setup_path(state.preferences)
-			)
-			.. ("function %s {%s%s%s}%s"):format(
+		("%s\n%s%s%s"):format(
+			platform
+				.choose("source %s\nsource %s", '. "%s"\r\n. "%s"\r')
+				:format(
+					Preferences.get_hooks_path(state.preferences),
+					Preferences.get_setup_path(state.preferences)
+				),
+			("function %s {%s%s%s}%s"):format(
 				state.preferences.zuzu_function_name,
 				platform.choose("\n:\n", ""), -- no-op
 				build_text,
 				platform.choose("\n", ""), -- no trailing newline needed on Powershell
 				platform.NEWLINE
-			)
-			.. (state.preferences.reflect and (platform
-				.choose(
-					[[
+			),
+			state.preferences.reflect
+					and ("%s%s"):format(
+						platform
+							.choose(
+								[[
 [ -t 1 ] && echo -en "%s"
 declare -f -p %s | envsubst | sed 's/^    //' | sed '1,3d;$d' %s
 [ -t 1 ] && echo -en "%s"
 ]],
-					[[
+								[[
 $reflectColor = "%s"
 $content = (Get-Content function:%s) -replace '^\s{4}',''
 $reflection = $ExecutionContext.InvokeCommand.ExpandString($content)
 $reflection | Out-File -FilePath %s
 Write-host $reflection -ForegroundColor $reflectColor 
 ]]
-				)
-				:format(
-					state.preferences.colors.reflect,
-					state.preferences.zuzu_function_name,
-					state.preferences.reopen_reflect
-							and ((platform.choose("| tee %s", "%s")):format(
-								Preferences.get_reflect_path(state.preferences)
-							))
-						or "",
-					colors.reset
-				) .. (state.preferences.newline_after_reflect and platform.choose(
-				"echo\n",
-				'Write-Output "`n"\r\n'
-			) or "")) or "")
-			.. platform.choose(
+							)
+							:format(
+								state.preferences.colors.reflect,
+								state.preferences.zuzu_function_name,
+								state.preferences.reopen_reflect
+										and ((platform.choose("| tee %s", "%s")):format(
+											Preferences.get_reflect_path(
+												state.preferences
+											)
+										))
+									or "",
+								colors.reset -- not used on Powershell
+							),
+						state.preferences.newline_after_reflect
+								and platform.choose(
+									"echo\n",
+									'Write-Output "`n"\r\n'
+								)
+							or ""
+					)
+				or "",
+			platform.choose(
 				(
 					"%s 2> >(tee %s; zuzu_pid1=$!) > >(tee %s; zuzu_pid2=$!)"
 					.. "\nwait $zuzu_pid1\nwait $zuzu_pid2"
@@ -128,6 +138,7 @@ Write-host $reflection -ForegroundColor $reflectColor
 					Preferences.get_last_stdout_path(state.preferences)
 				)
 			)
+		)
 	)
 	state.build_cache[build_name] = { state.profile, build_idx }
 	return build_text
@@ -415,9 +426,10 @@ foreach ($item in $array) {
 						.. '("zuzu-direct-set: %s")<CR>'
 					):format(hook_name)
 				end
-				return (
-					':bd! | lua require("zuzu").set_hook' .. '("%s", "%s")<CR>'
-				):format(hook_name, value)
+				return (':bd! | lua require("zuzu").set_hook("%s", "%s")<CR>'):format(
+					hook_name,
+					value
+				)
 			end,
 			"{custom}"
 		)

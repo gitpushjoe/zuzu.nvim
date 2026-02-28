@@ -141,7 +141,11 @@ M.create_floating_options_window = function(
 		local choice = choice_pair[1]
 		local index = choice_pair[2]
 		if index ~= 0 then
-			choice = choice:sub(1, index - 1) .. key .. choice:sub(index + 1)
+			choice = ("%s%s%s"):format(
+				choice:sub(1, index - 1),
+				key,
+				choice:sub(index + 1)
+			)
 		end
 		bimap.key_to_choice_pair[key] = { choice, index }
 		bimap.choice_to_key[choice_pair[1]] = key
@@ -288,7 +292,7 @@ M.create_floating_options_window = function(
 		local hint = (choice_hints or {})[i] or ""
 		table.insert(
 			lines,
-			("       %s -> %s "):format(key, displayed_choice .. " " .. hint)
+			("       %s -> %s %s "):format(key, displayed_choice, hint)
 		)
 		set_keymap(key, on_select(choice))
 	end

@@ -15,18 +15,16 @@ M.invalid_type_error = function(function_name, arg_name, expected_type, actual)
 		actual = type(arg_name[1])
 		arg_name = arg_name[3] or M.RETVAL
 	end
-	return (
-		arg_name ~= M.RETVAL
-			and ("Invalid type for `" .. arg_name .. "` in `")
-		or "Invalid type returned from `"
+	return ('%s%s`.\nExpected type "%s" but got "%s".'):format(
+		(
+			arg_name ~= M.RETVAL
+				and (("Invalid type for `%s` in `"):format(arg_name))
+			or "Invalid type returned from `"
+		),
+		function_name,
+		expected_type,
+		actual
 	)
-		.. function_name
-		.. "`."
-		.. '\nExpected type "'
-		.. expected_type
-		.. '" but got "'
-		.. actual
-		.. '".'
 end
 
 ---@param function_name string
@@ -52,21 +50,19 @@ M.invalid_instance_error = function(
 		if actual.__index then
 			actual = actual.__index.__name or tostring(actual.__index)
 		else
-			actual = "(actual = " .. tostring(actual) .. ")"
+			actual = ("(actual = %s)"):format(tostring(actual))
 		end
 	end
-	return (
-		arg_name ~= M.RETVAL
-			and ("Invalid base class for `" .. arg_name .. "` in `")
-		or "Invalid base class returned from `"
+	return ('%s%s`.\nExpected base class "%s" and got "%s".'):format(
+		(
+			arg_name ~= M.RETVAL
+				and ("Invalid base class for `%s` in `"):format(arg_name)
+			or "Invalid base class returned from `"
+		),
+		function_name,
+		expected_class,
+		tostring(actual)
 	)
-		.. function_name
-		.. "`."
-		.. '\nExpected base class "'
-		.. expected_class
-		.. '" and got "'
-		.. tostring(actual)
-		.. '".'
 end
 
 ---@param function_name string
@@ -127,10 +123,10 @@ M.types_in_list = function(
 	end
 	for i, value in ipairs(list) do
 		local new_function_name = arg_name == M.RETVAL
-				and (function_name .. "(...)[" .. i .. "]")
+				and (("%s(...)[%d]"):format(function_name, i))
 			or function_name
 		local new_arg_name = arg_name == M.RETVAL and M.RETVAL
-			or (arg_name .. "[" .. i .. "]")
+			or (("%s[%d]"):format(arg_name, i))
 		err = M.types(
 			new_function_name,
 			{ { value, expected_type, new_arg_name } },

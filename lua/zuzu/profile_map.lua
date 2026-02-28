@@ -11,11 +11,11 @@ end
 ---@param profile Profile
 ---@return string
 function M.get_id(root, profile)
-	return root
-		.. "\n"
-		.. table.concat(Profile.filetypes(profile), ",")
-		.. "\n"
-		.. Profile.depth(profile)
+	return ("%s\n%s\n%s"):format(
+		root,
+		table.concat(Profile.filetypes(profile), ","),
+		Profile.depth(profile)
+	)
 end
 
 ---@param profile_map ProfileMap
