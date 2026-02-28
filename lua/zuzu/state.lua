@@ -142,7 +142,15 @@ function M.state_resolve_hooks(state)
 	-- # of core hooks does not change
 	-- core hook callbacks do not change
 	-- core hooks are always at the beginning of state.hooks
-	for i, hook_pair in ipairs(state.preferences.core_hooks) do
+	---@type [string, fun():string][]
+	local core_hooks = {}
+	for hook_name, hook_val in pairs(state.preferences.core_hooks) do
+		table.insert(core_hooks, { hook_name, hook_val })
+	end
+	table.sort(core_hooks, function(a, b)
+		return a[1] < b[1]
+	end)
+	for i, hook_pair in ipairs(core_hooks) do
 		local hook_name = hook_pair[1]
 		local hook_func = hook_pair[2]
 		local hook_val = hook_func()
@@ -498,8 +506,7 @@ M.toggle_qflist = function(state, is_stable)
 		"No compiler registered for last build."
 	)
 
-	local errorformat =
-		Profile.get_errorformat(compiler, state.preferences.compilers)
+	local errorformat = state.preferences.compilers[compiler]
 
 	if errorformat then
 		vim.opt.errorformat = errorformat

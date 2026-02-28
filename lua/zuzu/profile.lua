@@ -221,19 +221,6 @@ function M.compiler(profile, build_idx)
 	return compiler or profile[6]
 end
 
----@param target_compiler string
----@param compiler_pairs [string, string][]
----@return string?
-function M.get_errorformat(target_compiler, compiler_pairs)
-	for _, compiler_pair in ipairs(compiler_pairs) do
-		local compiler = compiler_pair[1]
-		local errorformat = compiler_pair[2]
-		if compiler == target_compiler then
-			return errorformat
-		end
-	end
-end
-
 ---@param profile1 Profile
 ---@param profile2 Profile
 ---@return boolean

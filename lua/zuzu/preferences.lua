@@ -36,7 +36,7 @@ local M = {}
 ---@field display_strategy_count integer
 ---@field display_strategies DisplayStrategyFunc[]
 ---@field path PathPreferences
----@field core_hooks ({[1]: string, [2]: fun(): string})[]
+---@field core_hooks table<string, fun(): string>
 ---@field zuzu_function_name string
 ---@field keymaps Keymaps
 ---@field colors Colors
@@ -51,7 +51,7 @@ local M = {}
 ---@field newline_after_reflect boolean
 ---@field newline_before_reopen boolean
 ---@field enter_closes_buffer boolean
----@field compilers [string, string][]
+---@field compilers table<string, string>
 ---@field reopen_reflect boolean
 
 ---@param hook_name string
@@ -111,11 +111,11 @@ M.DEFAULT = {
 		reflect_filename = "reflect.txt",
 	},
 	core_hooks = {
-		{ env_var_syntax("file"), require("zuzu.hooks").file },
-		{ env_var_syntax("dir"), require("zuzu.hooks").directory },
-		{ env_var_syntax("parent"), require("zuzu.hooks").parent_directory },
-		{ env_var_syntax("base"), require("zuzu.hooks").base },
-		{ env_var_syntax("filename"), require("zuzu.hooks").filename },
+		[env_var_syntax("file")] = require("zuzu.hooks").file,
+		[env_var_syntax("dir")] = require("zuzu.hooks").directory,
+		[env_var_syntax("parent")] = require("zuzu.hooks").parent_directory,
+		[env_var_syntax("base")] = require("zuzu.hooks").base,
+		[env_var_syntax("filename")] = require("zuzu.hooks").filename,
 	},
 	colors = {
 		reopen_stderr = colors.bright_red,
@@ -126,18 +126,12 @@ M.DEFAULT = {
 	hook_choices_suffix = "__c",
 	compilers = {
 		-- https://vi.stackexchange.com/a/44620
-		{ "python3", '%A %#File "%f"\\, line %l\\, in %o,%Z %#%m' },
-		{ "lua", "%E%\\\\?lua:%f:%l:%m,%E%f:%l:%m" },
+		python3 = '%A %#File "%f"\\, line %l\\, in %o,%Z %#%m',
+		lua = "%E%\\\\?lua:%f:%l:%m,%E%f:%l:%m",
 		-- https://github.com/felixge/vim-nodejs-errorformat/blob/master/ftplugin/javascript.vim
 		-- Note: This will also work for bun.
-		{
-			"node",
-			[[%AError: %m,%AEvalError: %m,%ARangeError: %m,%AReferenceError: %m,%ASyntaxError: %m,%ATypeError: %m,%Z%*[\ ]at\ %f:%l:%c,%Z%*[\ ]%m (%f:%l:%c),%*[\ ]%m (%f:%l:%c),%*[\ ]at\ %f:%l:%c,%Z%p^,%A%f:%l,%C%m,%-G%.%#]],
-		},
-		{
-			"bash",
-			"%E%f: line %l: %m",
-		},
+		node = [[%AError: %m,%AEvalError: %m,%ARangeError: %m,%AReferenceError: %m,%ASyntaxError: %m,%ATypeError: %m,%Z%*[\ ]at\ %f:%l:%c,%Z%*[\ ]%m (%f:%l:%c),%*[\ ]%m (%f:%l:%c),%*[\ ]at\ %f:%l:%c,%Z%p^,%A%f:%l,%C%m,%-G%.%#]],
+		bash = "%E%f: line %l: %m",
 	},
 	qflist_as_diagnostic = true,
 	reverse_qflist_diagnostic_order = false,
