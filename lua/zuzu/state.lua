@@ -212,14 +212,14 @@ function M.state_build(state, path, build_idx)
 
 	state.profile = profile
 	local hooks_is_dirty = M.state_resolve_hooks(state)
-	if hooks_is_dirty then
+	if hooks_is_dirty or state.preferences.skip_redundant_writes then
 		M.state_write_hooks(state)
 	end
 
 	local compiler = Profile.compiler(profile, build_idx) or ""
 	local compiler_is_dirty = compiler ~= state.compiler
 	state.compiler = compiler
-	if compiler_is_dirty then
+	if compiler_is_dirty or state.preferences.skip_redundant_writes then
 		M.state_write_compiler(state)
 	end
 
@@ -231,7 +231,7 @@ function M.state_build(state, path, build_idx)
 		and build[2] == build_idx
 	)
 
-	if build_file_is_dirty then
+	if build_file_is_dirty or state.preferences.skip_redundant_writes then
 		M.state_write_setup(state)
 		M.state_write_build(state, build_name, build_text, build_idx)
 	end

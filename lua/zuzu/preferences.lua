@@ -53,6 +53,7 @@ local M = {}
 ---@field enter_closes_buffer boolean
 ---@field compilers table<string, string>
 ---@field reopen_reflect boolean
+---@field skip_redundant_writes boolean
 
 ---@param hook_name string
 ---@return string
@@ -148,6 +149,7 @@ M.DEFAULT = {
 	newline_before_reopen = false,
 	enter_closes_buffer = true,
 	reopen_reflect = true,
+	skip_redundant_writes = false,
 }
 
 ---@function function_name string
