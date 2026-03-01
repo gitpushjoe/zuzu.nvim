@@ -81,9 +81,7 @@ function M.profile_text(editor, id, profile)
 				hook_val = utils.str_ends_with(
 					hook_name,
 					editor.preferences.hook_choices_suffix
-				) and hook_val or string.find(hook_val, "%s") and ('"%s"'):format(
-					hook_val
-				) or hook_val
+				) and hook_val or ('"%s"'):format(hook_val:gsub('"', '\\"')) or hook_val
 				hook_text = hook_text
 					.. (platform.choose("\nexport %s=%s", "\r\n$%s=%s")):format(
 						hook_name,

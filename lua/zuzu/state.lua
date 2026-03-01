@@ -39,9 +39,10 @@ function M.state_write_hooks(state)
 		local hook_name = hook_pair[1]
 		local hook_val = hook_pair[2]
 		text = text
-			.. platform
-				.choose("export %s='%s'\n", "$%s = '%s'\r\n")
-				:format(hook_name, hook_val:gsub("'", "'\\''"))
+			.. platform.choose("export %s='%s'\n", "$%s = '%s'\r\n"):format(
+				hook_name,
+				hook_val:gsub("'", "'\\''"):gsub('\\"', '"'):gsub("\\%$", "$")
+			)
 	end
 
 	utils.write_to_path(Preferences.get_hooks_path(state.preferences), text)
@@ -428,7 +429,7 @@ foreach ($item in $array) {
 				end
 				return (':bd! | lua require("zuzu").set_hook("%s", "%s")<CR>'):format(
 					hook_name,
-					value
+					value:gsub('"', '\\"')
 				)
 			end,
 			"{custom}"
