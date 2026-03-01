@@ -7,21 +7,25 @@ M.get_parent_directory_basename_extension = function(path)
 end
 
 ---@param err string?
-M.error = function(err)
-	vim.notify("zuzu: " .. (err or ""), vim.log.levels.ERROR)
+---@param notify fun(msg: string, level: integer?): integer
+M.error = function(err, notify)
+	notify("zuzu: " .. (err or "Unexpected error"), vim.log.levels.ERROR)
 	vim.schedule(function()
 		print(" ")
 	end)
-	error(nil, 0)
+	error("\nzuzu: " .. (err or "Unexpected error"), 0)
 end
 
 ---@generic T
 ---@param expr T?
 ---@param errmsg string?
+---@param notify fun(msg: string, level: integer?): integer
 ---@return T
-M.assert = function(expr, errmsg)
+M.assert = function(expr, errmsg, notify)
+	errmsg = errmsg or "Unexpected error"
+	notify = notify or vim.notify
 	if not expr then
-		M.error(errmsg)
+		M.error(errmsg, notify)
 	end
 	return expr
 end
@@ -66,9 +70,11 @@ end
 
 ---@param path string
 ---@param content string
-function M.write_to_path(path, content)
-	local handle = M.assert(io.open(path, "w"), "Could not open " .. path)
-	M.assert(handle:write(content), "Could not write to " .. path)
+---@param notify fun(msg: string, level: integer?): integer
+function M.write_to_path(path, content, notify)
+	local handle =
+		M.assert(io.open(path, "w"), "Could not open " .. path, notify)
+	M.assert(handle:write(content), "Could not write to " .. path, notify)
 	handle:close()
 end
 

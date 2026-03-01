@@ -18,6 +18,7 @@ local M = {}
 ---@param builds string[]
 ---@param compiler string?
 ---@param hook_choices_suffix string
+---@param notify fun(msg: string, level: integer?): integer
 ---@return Profile
 ---@return string root_name
 function M.new(
@@ -28,22 +29,26 @@ function M.new(
 	setup,
 	builds,
 	compiler,
-	hook_choices_suffix
+	hook_choices_suffix,
+	notify
 )
 	utils.assert(
 		root ~= "",
-		"Unexpected empty root. Use {{ root: * }} to target all files."
+		"Unexpected empty root. Use {{ root: * }} to target all files.",
+		notify
 	)
 	if root ~= "*" then
 		local handle = io.open(root, "r")
 		utils.assert(
 			root:sub(1, 1) ~= ".",
-			("Do not use relative paths in root."):format(root)
+			("Do not use relative paths in root."):format(root),
+			notify
 		)
 		utils.assert(
 			(root:sub(1, 1) ~= "." and handle ~= nil)
 				or vim.fn.isdirectory(root),
-			("Root does not exist: %s."):format(root)
+			("Root does not exist: %s."):format(root),
+			notify
 		)
 		if handle then
 			handle:close()
@@ -55,7 +60,8 @@ function M.new(
 
 	utils.assert(
 		filetypes ~= "",
-		"Unexpected empty filetypes. Use {{ filetypes: * }} to target all filetypes."
+		"Unexpected empty filetypes. Use {{ filetypes: * }} to target all filetypes.",
+		notify
 	)
 	local filetype_list = filetypes == "*" and {} or vim.split(filetypes, ",")
 	table.sort(filetype_list)
@@ -64,18 +70,21 @@ function M.new(
 			filetype ~= "",
 			("Unexpected empty string in filetypes list: %s. Do not use a trailing comma."):format(
 				filetypes
-			)
+			),
+			notify
 		)
 	end
 
 	local depth_value = tonumber(depth)
 	utils.assert(
 		depth_value ~= math.huge,
-		("Invalid depth: %s. Use -1 for any depth."):format(depth)
+		("Invalid depth: %s. Use -1 for any depth."):format(depth),
+		notify
 	)
 	utils.assert(
 		depth_value ~= nil and math.floor(depth_value) == depth_value,
-		("Invalid depth: %s."):format(depth)
+		("Invalid depth: %s."):format(depth),
+		notify
 	)
 
 	---@type string[][]
@@ -117,11 +126,13 @@ function M.new(
 	for _, build in ipairs(builds) do
 		utils.assert(
 			build:sub(1, 1) ~= "|",
-			'Build script cannot start with "|"'
+			'Build script cannot start with "|"',
+			notify
 		)
 		utils.assert(
 			build:sub(#build, #build) ~= "(",
-			'Build script cannot end with "("'
+			'Build script cannot end with "("',
+			notify
 		)
 		local name, rest = string.match(
 			build,

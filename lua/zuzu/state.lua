@@ -45,7 +45,11 @@ function M.state_write_hooks(state)
 			)
 	end
 
-	utils.write_to_path(Preferences.get_hooks_path(state.preferences), text)
+	utils.write_to_path(
+		Preferences.get_hooks_path(state.preferences),
+		text,
+		state.preferences.notify
+	)
 
 	return text
 end
@@ -54,7 +58,8 @@ end
 function M.state_write_setup(state)
 	utils.write_to_path(
 		Preferences.get_setup_path(state.preferences),
-		Profile.setup(state.profile)
+		Profile.setup(state.profile),
+		state.preferences.notify
 	)
 end
 
@@ -62,7 +67,8 @@ end
 function M.state_write_compiler(state)
 	utils.write_to_path(
 		Preferences.get_compiler_path(state.preferences),
-		state.compiler
+		state.compiler,
+		state.preferences.notify
 	)
 end
 
@@ -139,7 +145,8 @@ Write-host $reflection -ForegroundColor $reflectColor
 					Preferences.get_last_stdout_path(state.preferences)
 				)
 			)
-		)
+		),
+		state.preferences.notify
 	)
 	state.build_cache[build_name] = { state.profile, build_idx }
 	return build_text
@@ -191,7 +198,8 @@ function M.state_write_atlas_function(state)
 		state.build_cache = {}
 		Atlas.atlas_write(
 			state.atlas,
-			Preferences.get_atlas_path(state.preferences)
+			Preferences.get_atlas_path(state.preferences),
+			state.preferences.notify
 		)
 	end
 end
@@ -262,7 +270,7 @@ end
 ---@param path string
 function M.state_edit_most_applicable_profile(state, path)
 	local profile, root = Atlas.resolve_profile(state.atlas, path)
-	profile = utils.assert(profile, "No applicable profile found.")
+	profile = utils.assert(profile, "No applicable profile found.", state.preferences.notify)
 	ProfileEditor.editor_open(
 		state.profile_editor,
 		{ [ProfileMap.get_id(root, profile)] = profile },
@@ -318,7 +326,8 @@ end
 function M.state_edit_hooks(state, path)
 	local profile = utils.assert(
 		Atlas.resolve_profile(state.atlas, path),
-		"No applicable build profile found."
+		"No applicable build profile found.",
+		state.preferences.notify
 	)
 
 	local hooks = Profile.hooks(profile)
@@ -367,7 +376,8 @@ end
 function M.state_edit_hook(state, path, hook_name)
 	local profile = utils.assert(
 		Atlas.resolve_profile(state.atlas, path),
-		"No applicable build profile found."
+		"No applicable build profile found.",
+		state.preferences.notify
 	)
 
 	local hook_idx, hook_val, hook_choices
@@ -468,7 +478,8 @@ end
 M.state_set_hook = function(state, path, hook_name, hook_val)
 	local profile = utils.assert(
 		Atlas.resolve_profile(state.atlas, path),
-		"No applicable build profile found."
+		"No applicable build profile found.",
+		state.preferences.notify
 	)
 
 	for _, hook_pair in ipairs(Profile.hooks(profile)) do
@@ -497,7 +508,8 @@ M.toggle_qflist = function(state, is_stable)
 	utils.assert(
 		vim.api.nvim_get_current_buf()
 			~= (state.profile_editor.state or {}).buf_id,
-		"Cannot toggle_qflist in profile editor"
+		"Cannot toggle_qflist in profile editor",
+		state.preferences.notify
 	)
 
 	for _, diagnostic in ipairs(vim.diagnostic.get(0)) do
@@ -516,7 +528,8 @@ M.toggle_qflist = function(state, is_stable)
 	)
 	compiler = utils.assert(
 		compiler ~= "" and compiler or nil,
-		"No compiler registered for last build."
+		"No compiler registered for last build.",
+		state.preferences.notify
 	)
 
 	local errorformat = state.preferences.compilers[compiler]
@@ -533,7 +546,7 @@ M.toggle_qflist = function(state, is_stable)
 		handle:close()
 	end
 	if #text == 0 then
-		vim.notify("zuzu: No errors!")
+		state.preferences.notify("zuzu: No errors!")
 		return true
 	end
 
@@ -580,7 +593,8 @@ M.qflist_prev_or_next = function(state, is_next)
 	utils.assert(
 		vim.api.nvim_get_current_buf()
 			~= (state.profile_editor.state or {}).buf_id,
-		"Cannot shift in qflist in profile editor"
+		"Cannot shift in qflist in profile editor",
+		state.preferences.notify
 	)
 
 	if state.preferences.reverse_qflist_diagnostic_order then

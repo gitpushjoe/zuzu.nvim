@@ -125,7 +125,8 @@ function M.editor_open_new_profile(editor, root)
 		platform.NEWLINE,
 		{},
 		nil,
-		editor.preferences.hook_choices_suffix
+		editor.preferences.hook_choices_suffix,
+		editor.preferences.notify
 	)
 	local id = ProfileMap.get_id(root, profile)
 	M.editor_open(editor, { [id] = profile })
@@ -144,7 +145,8 @@ function M.editor_open_new_profile_at_directory(editor, root)
 		platform.NEWLINE,
 		{},
 		nil,
-		editor.preferences.hook_choices_suffix
+		editor.preferences.hook_choices_suffix,
+		editor.preferences.notify
 	)
 	M.editor_open(editor, { [ProfileMap.get_id(directory, profile)] = profile })
 end
@@ -292,7 +294,7 @@ function M.apply_actions(editor, actions)
 			)
 		)
 	end
-	vim.notify(
+	editor.preferences.notify(
 		table.concat(action_strings, platform.NEWLINE),
 		vim.log.levels.INFO
 	)
@@ -431,7 +433,8 @@ function M.parse_editor_lines(editor, lines)
 			setup,
 			builds,
 			compiler,
-			editor.preferences.hook_choices_suffix
+			editor.preferences.hook_choices_suffix,
+			editor.preferences.notify
 		)
 		ProfileMap.map_insert(profiles, root_name, profile)
 	end
@@ -518,7 +521,11 @@ end
 ---@return ProfileEditor
 function M.editor_apply_actions(editor, actions)
 	for _, action in ipairs(actions) do
-		local root = utils.assert(ProfileMap.split_id(action.id))
+		local root = utils.assert(
+			ProfileMap.split_id(action.id),
+			nil,
+			editor.preferences.notify
+		)
 		local switch_table = {
 			---@param create_action CreateAction
 			create = function(create_action)
@@ -527,14 +534,18 @@ function M.editor_apply_actions(editor, actions)
 			---@param replace_action ReplaceAction
 			replace = function(replace_action)
 				local profile = utils.assert(
-					Atlas.find_by_id(editor.atlas, replace_action.id)
+					Atlas.find_by_id(editor.atlas, replace_action.id),
+					"Unable to replace profile",
+					editor.preferences.notify
 				)
 				Profile.set(profile, replace_action.profile)
 			end,
 			---@param overwrite_action OverwriteAction
 			overwrite = function(overwrite_action)
 				local profile = utils.assert(
-					Atlas.find_by_id(editor.atlas, overwrite_action.id)
+					Atlas.find_by_id(editor.atlas, overwrite_action.id),
+					"Unable to overwrite profile",
+					editor.preferences.notify
 				)
 				Profile.set(profile, overwrite_action.profile)
 			end,
@@ -542,7 +553,8 @@ function M.editor_apply_actions(editor, actions)
 			delete = function(delete_action)
 				utils.assert(
 					Atlas.delete(editor.atlas, root, delete_action.profile),
-					"Unable to delete profile"
+					"Unable to delete profile",
+					editor.preferences.notify
 				)
 			end,
 		}

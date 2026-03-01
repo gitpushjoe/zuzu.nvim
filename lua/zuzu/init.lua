@@ -15,29 +15,46 @@ local preferences
 
 local setup_called = false
 
+local get_notify = function()
+	return preferences and preferences.notify or vim.notify
+end
+
 local validate_path = function()
 	local path = vim.fn.expand("%:p")
 	utils.assert(
 		utils.get_parent_directory_basename_extension(path),
-		"Operation not allowed. Current path is invalid."
+		"Operation not allowed. Current path is invalid.",
+		get_notify()
 	)
 	return path
 end
 
 M.run = function(build_idx, display_strategy_idx)
-	utils.assert(state, "setup() has failed or has not been called")
-	utils.assert(type(build_idx) == type(1), "`build_idx` should be an integer")
+	utils.assert(
+		state,
+		"setup() has failed or has not been called",
+		get_notify()
+	)
+	utils.assert(
+		type(build_idx) == type(1),
+		"`build_idx` should be an integer",
+		get_notify()
+	)
 	utils.assert(
 		type(display_strategy_idx) == type(1),
-		"`display_strategy_idx` should be an integer"
+		"`display_strategy_idx` should be an integer",
+		get_notify()
 	)
 	if
 		preferences.write_on_run and vim.api.nvim_buf_get_option(0, "modified")
 	then
 		vim.cmd("write")
 	end
-	local cmd =
-		utils.assert(State.state_build(state, validate_path(), build_idx))
+	local cmd = utils.assert(
+		State.state_build(state, validate_path(), build_idx),
+		nil,
+		get_notify()
+	)
 	local buf_id = preferences.display_strategies[display_strategy_idx](
 		cmd,
 		utils.read_only(assert(state.profile)),
@@ -90,7 +107,11 @@ M.reopen = function(display_strategy_idx)
 				or ""
 		),
 		utils.read_only(
-			utils.assert(Atlas.resolve_profile(state.atlas, validate_path()))
+			utils.assert(
+				Atlas.resolve_profile(state.atlas, validate_path()),
+				nil,
+				get_notify()
+			)
 		),
 		0,
 		last_stdout_path,
@@ -279,7 +300,7 @@ end
 
 M.setup = function(table)
 	if setup_called then
-		vim.notify(
+		get_notify()(
 			"zuzu.nvim: setup cannont be called twice",
 			vim.log.levels.WARN
 		)
@@ -318,13 +339,20 @@ M.setup = function(table)
 	vim.cmd(
 		[[highlight ZuzuHookNextValue guifg=LightGreen cterm=bold gui=bold]]
 	)
+	vim.cmd([[highlight ZuzuInfo guifg=Cyan]])
+	vim.cmd([[highlight ZuzuWarn guifg=Yellow]])
 
 	setup_called = true
 	preferences = utils.assert(
-		Preferences.new('require("zuzu.nvim").setup(...)', table or {})
+		Preferences.new('require("zuzu.nvim").setup(...)', table or {}),
+		nil,
+		get_notify()
 	)
 	Preferences.initialize(preferences)
-	atlas = Atlas.atlas_read(Preferences.get_atlas_path(preferences))
+	atlas = Atlas.atlas_read(
+		Preferences.get_atlas_path(preferences),
+		preferences.notify
+	)
 	state = {
 		preferences = preferences,
 		atlas = atlas,

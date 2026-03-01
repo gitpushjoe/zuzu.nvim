@@ -40,6 +40,7 @@ local M = {}
 ---@field zuzu_function_name string
 ---@field keymaps Keymaps
 ---@field colors Colors
+---@field notify fun(msg: string, level: integer?): integer
 ---@field prompt_on_simple_edits boolean
 ---@field reverse_qflist_diagnostic_order boolean
 ---@field qflist_as_diagnostic boolean
@@ -127,6 +128,9 @@ M.DEFAULT = {
 		reopen_stderr = colors.bright_red,
 		reflect = colors.bright_yellow,
 	},
+	notify = function(msg, level)
+		return vim.notify(msg, level)
+	end,
 	zuzu_function_name = "zuzu_cmd",
 	prompt_on_simple_edits = false,
 	hook_choices_suffix = "__c",
