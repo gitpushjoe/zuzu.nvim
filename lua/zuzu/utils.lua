@@ -7,9 +7,11 @@ M.get_parent_directory_basename_extension = function(path)
 end
 
 ---@param err string?
----@param notify fun(msg: string, level: integer?): integer
+---@param notify (fun(msg: string, level: integer?): integer)?
 M.error = function(err, notify)
-	notify("zuzu: " .. (err or "Unexpected error"), vim.log.levels.ERROR)
+	if notify then
+		notify("zuzu: " .. (err or "Unexpected error"), vim.log.levels.ERROR)
+	end
 	vim.schedule(function()
 		print(" ")
 	end)
@@ -19,15 +21,30 @@ end
 ---@generic T
 ---@param expr T?
 ---@param errmsg string?
----@param notify fun(msg: string, level: integer?): integer
+---@param notify (fun(msg: string, level: integer?): integer)?
 ---@return T
 M.assert = function(expr, errmsg, notify)
 	errmsg = errmsg or "Unexpected error"
-	notify = notify or vim.notify
 	if not expr then
 		M.error(errmsg, notify)
 	end
 	return expr
+end
+
+---@param notify fun(msg: string, level: integer?): integer
+M.try = function(notify)
+	---@generic T
+	---@param f fun(...):T
+	---@return T?, string?
+	return function(f, ...)
+		local ok, res = pcall(f, ...)
+		if ok then
+			return res
+		end
+		local err = res:gsub("^\n*", "")
+		notify(err, vim.log.levels.ERROR)
+		return nil, err or "Unexpected error"
+	end
 end
 
 ---@param tbl table

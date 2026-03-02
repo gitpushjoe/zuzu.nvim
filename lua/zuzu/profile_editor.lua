@@ -158,6 +158,7 @@ end
 function M.editor_open(editor, profiles, link_profiles, id_order)
 	link_profiles = link_profiles or false
 	M.editor_close(editor)
+	local try = utils.try(editor.preferences.notify)
 	local text = (function()
 		local res = ""
 		if id_order then
@@ -239,10 +240,14 @@ function M.editor_open(editor, profiles, link_profiles, id_order)
 			if not vim.api.nvim_buf_is_valid(buf_id) then
 				return
 			end
-			local profile_map = M.parse_editor_lines(
+			local profile_map, err = try(
+				M.parse_editor_lines,
 				editor,
 				vim.api.nvim_buf_get_lines(buf_id, 0, -1, true)
 			)
+			if err then
+				return
+			end
 			local actions, should_prompt_user =
 				M.generate_actions(editor, profile_map)
 			if #actions == 0 then
@@ -251,7 +256,6 @@ function M.editor_open(editor, profiles, link_profiles, id_order)
 				return
 			end
 			local prompt = M.generate_prompt_from_actions(actions)
-			vim.api.nvim_echo(prompt, false, {})
 			local apply = function()
 				M.apply_actions(editor, actions)
 				vim.api.nvim_set_current_buf(original_buf_id)
@@ -261,6 +265,7 @@ function M.editor_open(editor, profiles, link_profiles, id_order)
 				apply()
 				return
 			end
+			vim.api.nvim_echo(prompt, false, {})
 			vim.ui.input({ prompt = "" }, function(input)
 				if string.lower(string.sub(input, 1, 1)) == "x" then
 					vim.api.nvim_set_current_buf(original_buf_id)
@@ -463,10 +468,7 @@ function M.generate_actions(editor, profile_map)
 					other = existing_profile,
 				}
 				should_prompt_user = should_prompt_user
-					or (
-						editor.preferences.prompt_on_simple_edits
-						and not profile_is_linked
-					)
+					or editor.preferences.prompt_on_simple_edits
 				table.insert(actions, action)
 			end
 		else

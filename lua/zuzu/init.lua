@@ -19,6 +19,15 @@ local get_notify = function()
 	return preferences and preferences.notify or vim.notify
 end
 
+---@generic T
+---@param func T
+---@return T
+local never_throw = function(func, ...)
+	return function(...)
+		utils.try(preferences.notify)(func, ...)
+	end
+end
+
 local validate_path = function()
 	local path = vim.fn.expand("%:p")
 	utils.assert(
@@ -29,7 +38,7 @@ local validate_path = function()
 	return path
 end
 
-M.run = function(build_idx, display_strategy_idx)
+M.run = never_throw(function(build_idx, display_strategy_idx)
 	utils.assert(
 		state,
 		"setup() has failed or has not been called",
@@ -52,7 +61,7 @@ M.run = function(build_idx, display_strategy_idx)
 	end
 	local cmd = utils.assert(
 		State.state_build(state, validate_path(), build_idx),
-		nil,
+		"Invalid path",
 		get_notify()
 	)
 	local buf_id = preferences.display_strategies[display_strategy_idx](
@@ -75,9 +84,9 @@ M.run = function(build_idx, display_strategy_idx)
 			{ noremap = true, silent = true }
 		)
 	end
-end
+end)
 
-M.reopen = function(display_strategy_idx)
+M.reopen = never_throw(function(display_strategy_idx)
 	local last_stdout_path = Preferences.get_last_stdout_path(preferences)
 	local last_stderr_path = Preferences.get_last_stderr_path(preferences)
 	local reopen_buf_id = preferences.display_strategies[display_strategy_idx](
@@ -106,13 +115,7 @@ M.reopen = function(display_strategy_idx)
 					)
 				or ""
 		),
-		utils.read_only(
-			utils.assert(
-				Atlas.resolve_profile(state.atlas, validate_path()),
-				nil,
-				get_notify()
-			)
-		),
+		{ {}, -1, {}, "", {} }, -- dummy profile
 		0,
 		last_stdout_path,
 		last_stderr_path,
@@ -248,51 +251,52 @@ M.reopen = function(display_strategy_idx)
 	vim.api.nvim_set_option_value("buftype", "acwrite", { buf = reopen_buf_id })
 	vim.api.nvim_set_option_value("modified", false, { buf = reopen_buf_id })
 	vim.api.nvim_set_option_value("modifiable", false, { buf = reopen_buf_id })
-end
+end)
 
-M.new_profile = function()
+M.new_profile = never_throw(function()
 	State.state_edit_new_profile(state, validate_path())
-end
+end)
 
-M.new_project_profile = function()
+M.new_project_profile = never_throw(function()
 	State.state_edit_new_profile_at_directory(state, validate_path())
-end
+end)
 
-M.edit_profile = function()
+M.edit_profile = never_throw(function()
 	State.state_edit_most_applicable_profile(state, validate_path())
-end
+end)
 
-M.edit_all_applicable_profiles = function()
+M.edit_all_applicable_profiles = never_throw(function()
 	State.state_edit_all_applicable_profiles(state, validate_path())
-end
+end)
 
-M.edit_all_profiles = function()
+M.edit_all_profiles = never_throw(function()
 	State.state_edit_all_profiles(state, validate_path())
-end
+end)
 
 ---@param hook_name string
-M.edit_hook = function(hook_name)
+M.edit_hook = never_throw(function(hook_name)
 	State.state_edit_hook(state, validate_path(), hook_name)
-end
+end)
 
-M.edit_hooks = function()
+M.edit_hooks = never_throw(function() -- <- last change was here
 	State.state_edit_hooks(state, validate_path())
-end
+end)
 
 ---@param hook_name string
-M.set_hook = function(hook_name, hook_val)
+---@param hook_val string
+M.set_hook = never_throw(function(hook_name, hook_val)
 	State.state_set_hook(state, validate_path(), hook_name, hook_val)
-end
+end)
 
 ---@param is_stable boolean?
-M.toggle_qflist = function(is_stable)
+M.toggle_qflist = never_throw(function(is_stable)
 	State.toggle_qflist(state, is_stable or false)
-end
+end)
 
 ---@param is_next boolean
-M.qflist_prev_or_next = function(is_next)
+M.qflist_prev_or_next = never_throw(function(is_next)
 	State.qflist_prev_or_next(state, is_next)
-end
+end)
 
 M.version = function()
 	print(require("zuzu.version"))

@@ -117,7 +117,8 @@ function M.new(
 				("Could not parse hook: %s. Format is `%s`."):format(
 					hook,
 					platform.choose("export name=value", "$VAR = value")
-				)
+				),
+				notify
 			)
 		end)()
 	end
