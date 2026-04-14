@@ -135,8 +135,7 @@ function M.delete(atlas, root, profile)
 end
 
 ---@param atlas_path string
----@param notify fun(msg: string, level: integer?): integer
-function M.atlas_read(atlas_path, notify)
+function M.atlas_read(atlas_path)
 	local handle = io.open(atlas_path)
 	if not handle then
 		handle = utils.assert(
@@ -144,7 +143,7 @@ function M.atlas_read(atlas_path, notify)
 			"Could not create file " .. atlas_path
 		)
 		handle:close()
-		handle = utils.assert(io.open(atlas_path, "r"), nil, notify)
+		handle = utils.assert(io.open(atlas_path, "r"))
 	end
 	local text = handle:read("*a")
 	handle:close()
@@ -156,10 +155,9 @@ end
 
 ---@param atlas Atlas
 ---@param atlas_path string
----@param notify fun(msg: string, level: integer?): integer
-function M.atlas_write(atlas, atlas_path, notify)
+function M.atlas_write(atlas, atlas_path)
 	local atlas_handle = utils.assert(io.open(atlas_path, "w"))
-	utils.assert(atlas_handle:write(vim.fn.json_encode(atlas)), nil, notify)
+	utils.assert(atlas_handle:write(vim.fn.json_encode(atlas)))
 	atlas_handle:close()
 end
 

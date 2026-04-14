@@ -19,12 +19,14 @@ local get_notify = function()
 	return preferences and preferences.notify or vim.notify
 end
 
+require("zuzu.utils").get_default_notify = get_notify
+
 ---@generic T
 ---@param func T
 ---@return T
 local never_throw = function(func, ...)
 	return function(...)
-		utils.try(preferences.notify)(func, ...)
+		utils.try(func, ...)
 	end
 end
 
@@ -32,27 +34,17 @@ local validate_path = function()
 	local path = vim.fn.expand("%:p")
 	utils.assert(
 		utils.get_parent_directory_basename_extension(path),
-		"Operation not allowed. Current path is invalid.",
-		get_notify()
+		"Operation not allowed. Current path is invalid."
 	)
 	return path
 end
 
 M.run = never_throw(function(build_idx, display_strategy_idx)
-	utils.assert(
-		state,
-		"setup() has failed or has not been called",
-		get_notify()
-	)
-	utils.assert(
-		type(build_idx) == type(1),
-		"`build_idx` should be an integer",
-		get_notify()
-	)
+	utils.assert(state, "setup() has failed or has not been called")
+	utils.assert(type(build_idx) == type(1), "`build_idx` should be an integer")
 	utils.assert(
 		type(display_strategy_idx) == type(1),
-		"`display_strategy_idx` should be an integer",
-		get_notify()
+		"`display_strategy_idx` should be an integer"
 	)
 	if
 		preferences.write_on_run and vim.api.nvim_buf_get_option(0, "modified")
@@ -61,8 +53,7 @@ M.run = never_throw(function(build_idx, display_strategy_idx)
 	end
 	local cmd = utils.assert(
 		State.state_build(state, validate_path(), build_idx),
-		"Invalid path",
-		get_notify()
+		"Invalid path"
 	)
 	local buf_id = preferences.display_strategies[display_strategy_idx](
 		cmd,
@@ -348,9 +339,7 @@ M.setup = function(table)
 
 	setup_called = true
 	preferences = utils.assert(
-		Preferences.new('require("zuzu.nvim").setup(...)', table or {}),
-		nil,
-		get_notify()
+		Preferences.new('require("zuzu.nvim").setup(...)', table or {})
 	)
 	Preferences.initialize(preferences)
 	atlas = Atlas.atlas_read(

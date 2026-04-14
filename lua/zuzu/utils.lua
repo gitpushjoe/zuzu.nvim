@@ -2,6 +2,17 @@ local platform = require("zuzu.platform")
 
 local M = {}
 
+M.get_default_notify = function()
+	return error
+end
+
+---@param notify (fun(msg: string, level: integer?): integer)?
+M.set_default_notify = function(notify)
+	M.get_default_notify = function()
+		return notify
+	end
+end
+
 M.get_parent_directory_basename_extension = function(path)
 	return path:match("(.*)" .. platform.PATH_SEP .. "(.*)%.(%w*)")
 end
@@ -25,26 +36,24 @@ end
 ---@return T
 M.assert = function(expr, errmsg, notify)
 	errmsg = errmsg or "Unexpected error"
+	notify = notify or M.get_default_notify()
 	if not expr then
 		M.error(errmsg, notify)
 	end
 	return expr
 end
 
----@param notify fun(msg: string, level: integer?): integer
-M.try = function(notify)
-	---@generic T
-	---@param f fun(...):T
-	---@return T?, string?
-	return function(f, ...)
-		local ok, res = pcall(f, ...)
-		if ok then
-			return res
-		end
-		local err = res:gsub("^\n*", "")
-		notify(err, vim.log.levels.ERROR)
-		return nil, err or "Unexpected error"
+---@generic T
+---@param f fun(...):T
+---@return T?, string?
+M.try = function(f, ...)
+	local ok, res = pcall(f, ...)
+	if ok then
+		return res
 	end
+	local err = res:gsub("^\n*", "")
+	M.get_default_notify()(err, vim.log.levels.ERROR)
+	return nil, err or "Unexpected error"
 end
 
 ---@param tbl table
@@ -87,11 +96,9 @@ end
 
 ---@param path string
 ---@param content string
----@param notify fun(msg: string, level: integer?): integer
-function M.write_to_path(path, content, notify)
-	local handle =
-		M.assert(io.open(path, "w"), "Could not open " .. path, notify)
-	M.assert(handle:write(content), "Could not write to " .. path, notify)
+function M.write_to_path(path, content)
+	local handle = M.assert(io.open(path, "w"), "Could not open " .. path)
+	M.assert(handle:write(content), "Could not write to " .. path)
 	handle:close()
 end
 
