@@ -445,6 +445,7 @@ foreach ($item in $array) {
 			hook_name,
 			hook_val:sub(1, 1) == '"' and hook_val or ('"%s"'):format(hook_val)
 		),
+		default = hook_val
 	}, function(input)
 		if not input then
 			return

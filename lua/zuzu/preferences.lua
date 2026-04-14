@@ -77,11 +77,14 @@ M.DEFAULT = {
 			{ "zv", "ZV", "zV", "Zv" },
 			{ "zs", "ZS", "zS", "Zs" },
 			{ "zb", "ZB", "zB", "Zb" },
+			{ "zc", "ZC", "zC", "Zc" },
 		},
 		reopen = {
 			"z.",
 			'z"',
 			"z:",
+			"",
+			"z "
 		},
 		new_profile = "z+",
 		new_project_profile = "z/",
@@ -108,6 +111,7 @@ M.DEFAULT = {
 			--- Delay between each elapsed time update in milliseconds
 			1000 / 8
 		),
+		require("zuzu.display_strategies").current(true)
 	},
 	path = {
 		root = platform.join_path(tostring(vim.fn.stdpath("data")), "zuzu"),
